@@ -72,12 +72,9 @@ const getPlatform=u=>{if(!u)return null;if(u.includes("tiktok.com"))return"tikto
 // Proxy Instagram/TikTok CDN images through server to avoid cross-origin blocks
 const proxyThumb=url=>{
   if(!url)return null;
-  // Already proxied — return as-is
   if(url.startsWith("/api/proxy-image"))return url;
-  // Proxy all Instagram/TikTok CDN URLs
-  if(url.includes("fbcdn")||url.includes("cdninstagram")||
-     url.includes("fna.fbcdn")||url.includes("instagram.f")||
-     url.includes("p16-sign")||url.includes("tiktokcdn"))
+  // Only proxy Instagram CDN — TikTok loads fine without proxy
+  if(url.includes("fbcdn")||url.includes("cdninstagram")||url.includes("instagram.f"))
     return`/api/proxy-image?url=${encodeURIComponent(url)}`;
   return url;
 };
