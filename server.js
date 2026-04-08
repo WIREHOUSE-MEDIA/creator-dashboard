@@ -79,18 +79,24 @@ app.get('/api/tt-music', async (req, res) => {
 });
 
 // Instagram post — instagram-looter2 GET /post?url=
+// Always normalize to /p/ format — API doesn't accept /reel/ format
 app.get('/api/ig-post', async (req, res) => {
   const { postUrl } = req.query;
   if (!postUrl) return res.status(400).json({ error: 'Missing postUrl' });
   if (!process.env.RAPID_KEY) return res.status(500).json({ error: 'RAPID_KEY not set' });
   try {
-    const url = decodeURIComponent(postUrl);
-    console.log('[IG-POST] fetching:', url);
-    const r = await fetch(`https://${IG_HOST}/post?url=${encodeURIComponent(url)}`, {
+    const raw = decodeURIComponent(postUrl);
+    // Extract shortcode from any IG URL format (/p/, /reel/, /tv/, /reels/)
+    const code = raw.match(/\/(p|reel|reels|tv)\/([A-Za-z0-9_-]+)/)?.[2];
+    if (!code) return res.status(400).json({ error: 'Could not extract shortcode from URL' });
+    // Always use /p/ format — what instagram-looter2 accepts
+    const normalizedUrl = `https://www.instagram.com/p/${code}/`;
+    console.log('[IG-POST] normalized:', normalizedUrl);
+    const r = await fetch(`https://${IG_HOST}/post?url=${encodeURIComponent(normalizedUrl)}`, {
       headers: { 'x-rapidapi-key': process.env.RAPID_KEY, 'x-rapidapi-host': IG_HOST }
     });
     const data = await r.json();
-    console.log('[IG-POST] status:', r.status);
+    console.log('[IG-POST] status:', r.status, 'success:', data?.status);
     res.json(data);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
