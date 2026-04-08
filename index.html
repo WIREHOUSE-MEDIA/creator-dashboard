@@ -46,57 +46,56 @@ select.inp option{background:var(--s2)}
 </head>
 <body>
 <div id="root">
-  <div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:14px;color:var(--t3);font-size:13px">
+  <div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:14px;color:rgba(240,240,240,0.26);font-size:13px">
     <div class="spin" style="width:22px;height:22px;border:2px solid rgba(255,255,255,0.08);border-top-color:#C9A84C;border-radius:50%"></div>
-    Connecting…
+    Loading…
   </div>
 </div>
-
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone@7.24.0/babel.min.js"></script>
 <script type="text/babel">
 const {useState,useEffect,useRef,useCallback}=React;
-
 const GOLD="#C9A84C",TT="#69C9D0",IG="#E1306C",SP="#1DB954";
-// RapidAPI calls go through server proxy endpoints to avoid CORS
 
 // ── UTILS ─────────────────────────────────────────────────
 const uid=()=>Math.random().toString(36).slice(2,10);
 const fmt=n=>{n=Number(n)||0;if(n>=1e9)return(n/1e9).toFixed(1)+"B";if(n>=1e6)return(n/1e6).toFixed(1)+"M";if(n>=1e3)return(n/1e3).toFixed(1)+"K";return Math.round(n).toLocaleString()};
+const fmtUSD=n=>"$"+(Number(n)||0).toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:0});
 const ttVid=u=>(u||"").match(/video\/(\d{10,25})/)?.[1]||null;
 const ttMid=u=>(u||"").match(/music\/[^?/]*?(\d{10,25})/)?.[1]||null;
 const ttUsr=u=>(u||"").match(/@([^/?&\s]+)/)?.[1]||null;
 const igCd=u=>(u||"").match(/\/(p|reel|tv)\/([A-Za-z0-9_-]+)/)?.[2]||null;
 const spId=u=>(u||"").match(/track\/([A-Za-z0-9]+)/)?.[1]||null;
-const plat=u=>{if(!u)return null;if(u.includes("tiktok.com"))return"tiktok";if(u.includes("instagram.com"))return"instagram";return null};
+const getPlatform=u=>{if(!u)return null;if(u.includes("tiktok.com"))return"tiktok";if(u.includes("instagram.com"))return"instagram";return null};
+// Proxy Instagram/TikTok CDN images through server to avoid cross-origin blocks
+const proxyThumb=url=>{
+  if(!url)return null;
+  if(url.includes("cdninstagram")||url.includes("fbcdn")||url.includes("instagram.com"))
+    return`/api/proxy-image?url=${encodeURIComponent(url)}`;
+  return url;
+};
 
-// ── JSONBIN — cross-device storage ────────────────────────
+// ── JSONBIN ───────────────────────────────────────────────
 const JBIN="https://api.jsonbin.io/v3";
 async function jbRead(key,bin){
   if(!key||!bin)return null;
   try{
     const r=await fetch(`${JBIN}/b/${bin}/latest`,{headers:{"X-Master-Key":key,"X-Bin-Meta":false}});
-    if(!r.ok){console.error("JSONbin read failed:",r.status);return null}
+    if(!r.ok)return null;
     const d=await r.json();
-    // JSONbin returns {record:{...}} when X-Bin-Meta is not false, or just the record
     return d?.record||d||null;
-  }catch(e){console.error("JSONbin read error:",e);return null}
+  }catch(e){console.error("jbRead:",e);return null}
 }
 async function jbWrite(key,bin,data){
   if(!key||!bin)return false;
   try{
-    const r=await fetch(`${JBIN}/b/${bin}`,{
-      method:"PUT",
-      headers:{"X-Master-Key":key,"Content-Type":"application/json"},
-      body:JSON.stringify(data)
-    });
-    if(!r.ok)console.error("JSONbin write failed:",r.status);
+    const r=await fetch(`${JBIN}/b/${bin}`,{method:"PUT",headers:{"X-Master-Key":key,"Content-Type":"application/json"},body:JSON.stringify(data)});
     return r.ok;
-  }catch(e){console.error("JSONbin write error:",e);return false}
+  }catch(e){console.error("jbWrite:",e);return false}
 }
 
-// ── API CALLS — all proxied through server to avoid CORS ──
+// ── API CALLS — proxied through server ────────────────────
 async function fetchTTPost(vid){
   if(!vid)return null;
   try{
@@ -105,15 +104,15 @@ async function fetchTTPost(vid){
     const d=await r.json();
     const item=d?.itemInfo?.itemStruct||d?.data?.itemInfo?.itemStruct||d?.item||d?.data||d;
     const st=item?.stats||item?.statistics||{};
-    const vid2=item?.video||{};
+    const v=item?.video||{};
     const auth=item?.author||{};
     return{
       views:   st.playCount   ||st.play_count   ||null,
       likes:   st.diggCount   ||st.digg_count   ||null,
       comments:st.commentCount||st.comment_count||null,
       saves:   st.collectCount||st.collect_count||null,
-      thumbnail:vid2.cover||vid2.dynamicCover||null,
-      handle:  auth.uniqueId ||auth.unique_id  ||auth.nickname||null,
+      thumbnail:v.cover||v.dynamicCover||null,
+      handle:  auth.uniqueId  ||auth.unique_id  ||auth.nickname||null,
     };
   }catch{return null}
 }
@@ -145,7 +144,7 @@ async function fetchIGPost(code){
   }catch{return null}
 }
 async function pullPost(url){
-  const p=plat(url);
+  const p=getPlatform(url);
   if(!p)return null;
   const base={platform:p,postUrl:url,handle:"",thumbnail:null,views:null,likes:null,comments:null,saves:null};
   if(p==="tiktok"){const d=await fetchTTPost(ttVid(url));return d?{...base,...d,platform:"tiktok"}:{...base,handle:ttUsr(url)||""}}
@@ -159,9 +158,9 @@ async function spTrack(tid,tok){try{const r=await fetch(`https://api.spotify.com
 
 // ── CHARTEX ───────────────────────────────────────────────
 const CX="https://api.chartex.com/external/v1";
-async function cxFetch(path,cfg){if(!cfg?.cxId||!cfg?.cxToken)return null;try{const r=await fetch(CX+path,{headers:{"X-APP-ID":cfg.cxId,"X-APP-TOKEN":cfg.cxToken}});return r.ok?(await r.json()):null}catch{return null}}
-async function cxFindSong(cfg,sid,name){const p=sid?`/songs/?spotify_id=${sid}&limit=3`:`/songs/?search=${encodeURIComponent(name||"")}&limit=5`;const d=await cxFetch(p,cfg);const a=d?.data?.items||d?.items||(Array.isArray(d)?d:[]);return a[0]||null}
-async function cxSongStats(cfg,id){const d=await cxFetch(`/songs/${id}/`,cfg);return d?.data||d||null}
+async function cxGet(path,cfg){if(!cfg?.cxId||!cfg?.cxToken)return null;try{const r=await fetch(CX+path,{headers:{"X-APP-ID":cfg.cxId,"X-APP-TOKEN":cfg.cxToken}});return r.ok?(await r.json()):null}catch{return null}}
+async function cxFindSong(cfg,sid,name){const p=sid?`/songs/?spotify_id=${sid}&limit=3`:`/songs/?search=${encodeURIComponent(name||"")}&limit=5`;const d=await cxGet(p,cfg);const a=d?.data?.items||d?.items||(Array.isArray(d)?d:[]);return a[0]||null}
+async function cxSongStats(cfg,id){const d=await cxGet(`/songs/${id}/`,cfg);return d?.data||d||null}
 
 // ── ICONS ─────────────────────────────────────────────────
 const Tt=({s=16,c=TT})=><svg width={s} height={s} viewBox="0 0 24 24" fill={c}><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.69a8.26 8.26 0 004.84 1.56V6.8a4.85 4.85 0 01-1.07-.11z"/></svg>;
@@ -196,24 +195,55 @@ function Modal({title,onClose,children,mw=500}){
 function PostForm({initial,onSubmit,onClose,cfg,label}){
   const[url,setUrl]=useState(initial?.postUrl||"");
   const[st,setSt]=useState(initial?.postUrl?"done":"idle");
-  const[f,setF]=useState({platform:initial?.platform||"tiktok",handle:initial?.handle||"",thumbnail:initial?.thumbnail||"",views:initial?.views||"",likes:initial?.likes||"",comments:initial?.comments||"",saves:initial?.saves||"",budget:initial?.budget||""});
+  const[f,setF]=useState({
+    platform:initial?.platform||"tiktok",
+    handle:initial?.handle||"",
+    thumbnail:initial?.thumbnail||"",
+    views:initial?.views||"",
+    likes:initial?.likes||"",
+    comments:initial?.comments||"",
+    saves:initial?.saves||"",
+    budget:initial?.budget||"",
+  });
   const db=useRef(null);
   const sf=k=>e=>setF(p=>({...p,[k]:e.target.value}));
+
   const doFetch=useCallback(async raw=>{
-    const u=raw.trim();if(!plat(u)){setSt("idle");return}
+    const u=raw.trim();
+    if(!getPlatform(u)){setSt("idle");return}
     setSt("fetching");
     const d=await pullPost(u);
     if(d&&(d.views!=null||d.likes!=null||d.thumbnail||d.handle)){
-      setF(p=>({...p,platform:d.platform||p.platform,handle:d.handle||p.handle,thumbnail:d.thumbnail||p.thumbnail,views:d.views!=null?String(d.views):p.views,likes:d.likes!=null?String(d.likes):p.likes,comments:d.comments!=null?String(d.comments):p.comments,saves:d.saves!=null?String(d.saves):p.saves}));
+      setF(p=>({...p,
+        platform:d.platform||p.platform,
+        handle:d.handle||p.handle,
+        thumbnail:d.thumbnail||p.thumbnail,
+        views:d.views!=null?String(d.views):p.views,
+        likes:d.likes!=null?String(d.likes):p.likes,
+        comments:d.comments!=null?String(d.comments):p.comments,
+        saves:d.saves!=null?String(d.saves):p.saves,
+      }));
       setSt("done");
     }else setSt("error");
-  },[cfg]);
-  const onU=e=>{const v=e.target.value;setUrl(v);clearTimeout(db.current);if(v.trim().length>20&&plat(v)){setSt("fetching");db.current=setTimeout(()=>doFetch(v),800)}else setSt("idle")};
+  },[]);
+
+  const onU=e=>{
+    const v=e.target.value;setUrl(v);clearTimeout(db.current);
+    if(v.trim().length>20&&getPlatform(v)){setSt("fetching");db.current=setTimeout(()=>doFetch(v),800)}
+    else setSt("idle");
+  };
+
   const vv=Number(f.views)||0,lk=Number(f.likes)||0,cm=Number(f.comments)||0;
   const er=vv>0?((lk+cm)/vv*100).toFixed(2)+"%":"—";
   const P=PC[f.platform]||PC.tiktok;
   const stC={idle:"var(--t3)",fetching:GOLD,done:SP,error:IG};
-  const stM={idle:"Paste TikTok or Instagram URL — metrics pull automatically",fetching:"Fetching live metrics…",done:"✓ Metrics loaded — edit any field if needed",error:"Post may be private. Fill in manually below."};
+  const stM={
+    idle:"Paste TikTok or Instagram URL — metrics pull automatically",
+    fetching:"Fetching live metrics…",
+    done:"✓ Metrics loaded — edit any field if needed",
+    error:"Post may be private or rate limit hit. Fill in manually below.",
+  };
+
   return(
     <>
       <div style={{marginBottom:14}}>
@@ -225,18 +255,28 @@ function PostForm({initial,onSubmit,onClose,cfg,label}){
         </div>
         <p style={{fontSize:11,marginTop:5,color:stC[st],fontWeight:st==="idle"?400:600}}>{stM[st]}</p>
       </div>
+
       <div style={{display:"grid",gridTemplateColumns:"175px 1fr",gap:18,alignItems:"start"}}>
         <div>
           <label className="lbl">Preview</label>
           <div style={{width:175,height:311,borderRadius:10,overflow:"hidden",position:"relative",background:f.thumbnail?`url(${proxyThumb(f.thumbnail)}) center/cover no-repeat`:P.grad,border:".5px solid var(--b2)"}}>
             <div style={{position:"absolute",inset:0,background:"linear-gradient(to top,rgba(0,0,0,.9) 0%,transparent 55%)"}}/>
-            <div style={{position:"absolute",top:9,left:9,background:"rgba(0,0,0,.68)",borderRadius:6,padding:"3px 8px",display:"flex",alignItems:"center",gap:4}}><P.I s={11} c="#fff"/><span style={{color:"#fff",fontSize:10,fontWeight:700}}>{P.label}</span></div>
-            <div style={{position:"absolute",bottom:10,left:10,right:10}}><p style={{color:"#fff",fontSize:13,fontWeight:700}}>@{f.handle||"creator"}</p></div>
+            <div style={{position:"absolute",top:9,left:9,background:"rgba(0,0,0,.68)",borderRadius:6,padding:"3px 8px",display:"flex",alignItems:"center",gap:4}}>
+              <P.I s={11} c="#fff"/><span style={{color:"#fff",fontSize:10,fontWeight:700}}>{P.label}</span>
+            </div>
+            <div style={{position:"absolute",bottom:10,left:10,right:10}}>
+              <p style={{color:"#fff",fontSize:13,fontWeight:700}}>@{f.handle||"creator"}</p>
+            </div>
           </div>
         </div>
+
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
           <div className="g2">
-            <div><label className="lbl">Platform</label><select className="inp" value={f.platform} onChange={sf("platform")}>{Object.keys(PC).map(k=><option key={k} value={k}>{PC[k].label}</option>)}</select></div>
+            <div><label className="lbl">Platform</label>
+              <select className="inp" value={f.platform} onChange={sf("platform")}>
+                {Object.keys(PC).map(k=><option key={k} value={k}>{PC[k].label}</option>)}
+              </select>
+            </div>
             <div><label className="lbl">Handle</label><input className="inp" placeholder="@username" value={f.handle} onChange={sf("handle")}/></div>
           </div>
           <div><label className="lbl">Thumbnail URL</label><input className="inp" placeholder="auto-pulled or paste direct image URL" value={f.thumbnail} onChange={sf("thumbnail")}/></div>
@@ -246,7 +286,13 @@ function PostForm({initial,onSubmit,onClose,cfg,label}){
             <div><label className="lbl">Comments</label><input className="inp" type="number" min="0" placeholder="0" value={f.comments} onChange={sf("comments")}/></div>
             <div><label className="lbl">Saves</label><input className="inp" type="number" min="0" placeholder="0" value={f.saves} onChange={sf("saves")}/></div>
           </div>
-          <div><label className="lbl">Post Cost (USD) <span style={{fontWeight:400,color:"var(--t3)"}}>— what you paid this creator</span></label><div style={{position:"relative"}}><span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:"var(--t2)",fontSize:13}}>$</span><input className="inp" type="number" min="0" placeholder="0.00" value={f.budget||""} onChange={sf("budget")} style={{paddingLeft:22}}/></div></div>
+          <div>
+            <label className="lbl">Post Cost (USD) <span style={{fontWeight:400,color:"var(--t3)"}}>— what you paid this creator</span></label>
+            <div style={{position:"relative"}}>
+              <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:"var(--t2)",fontSize:13,pointerEvents:"none"}}>$</span>
+              <input className="inp" type="number" min="0" placeholder="0.00" value={f.budget} onChange={sf("budget")} style={{paddingLeft:22}}/>
+            </div>
+          </div>
           <div style={{background:"var(--s2)",borderRadius:8,padding:"8px 12px",display:"flex",justifyContent:"space-between",alignItems:"center",border:".5px solid var(--b1)"}}>
             <span style={{fontSize:11,color:"var(--t2)"}}>Engagement Rate (auto)</span>
             <span style={{fontSize:16,fontWeight:700,color:GOLD}}>{er}</span>
@@ -267,14 +313,29 @@ function CampForm({init,onSubmit,onClose}){
   const s=k=>e=>setF(p=>({...p,[k]:e.target.value}));
   return(
     <div style={{display:"flex",flexDirection:"column",gap:12}}>
-      <div className="g2"><div><label className="lbl">Campaign Name *</label><input className="inp" placeholder="e.g. Alicia Keys — Lifeline" value={f.name} onChange={s("name")}/></div><div><label className="lbl">Artist</label><input className="inp" value={f.artist} onChange={s("artist")}/></div></div>
+      <div className="g2">
+        <div><label className="lbl">Campaign Name *</label><input className="inp" placeholder="e.g. Alicia Keys — Lifeline" value={f.name} onChange={s("name")}/></div>
+        <div><label className="lbl">Artist</label><input className="inp" value={f.artist} onChange={s("artist")}/></div>
+      </div>
       <div><label className="lbl">Description</label><input className="inp" placeholder="Brief description" value={f.desc} onChange={s("desc")}/></div>
       <div className="hr"/>
       <p style={{fontSize:10,fontWeight:700,color:GOLD,textTransform:"uppercase",letterSpacing:".06em"}}>Sound & Track Links</p>
-      <div><label className="lbl" style={{display:"flex",alignItems:"center",gap:4}}><Tt s={10} c={TT}/>TikTok Sound Page URL</label><input className="inp" placeholder="https://www.tiktok.com/music/Song-Name-7556815852168759313" value={f.ttUrl} onChange={s("ttUrl")}/></div>
-      <div><label className="lbl" style={{display:"flex",alignItems:"center",gap:4}}><Ig s={10} c={IG}/>Instagram Audio Page URL</label><input className="inp" placeholder="https://www.instagram.com/reels/audio/..." value={f.igUrl} onChange={s("igUrl")}/></div>
-      <div><label className="lbl" style={{display:"flex",alignItems:"center",gap:4}}><Sv s={10} c={SP}/>Spotify Track URL</label><input className="inp" placeholder="https://open.spotify.com/track/..." value={f.spUrl} onChange={s("spUrl")}/></div>
-      <div><label className="lbl">Chartex Song URL <span style={{fontWeight:400,color:"var(--t3)"}}>— embedded live below creator posts</span></label><input className="inp" placeholder="https://chartex.com/songs/... " value={f.cxUrl} onChange={s("cxUrl")}/></div>
+      <div>
+        <label className="lbl" style={{display:"flex",alignItems:"center",gap:4}}><Tt s={10} c={TT}/>TikTok Sound Page URL</label>
+        <input className="inp" placeholder="https://www.tiktok.com/music/Song-Name-7556815852168759313" value={f.ttUrl} onChange={s("ttUrl")}/>
+      </div>
+      <div>
+        <label className="lbl" style={{display:"flex",alignItems:"center",gap:4}}><Ig s={10} c={IG}/>Instagram Audio Page URL</label>
+        <input className="inp" placeholder="https://www.instagram.com/reels/audio/..." value={f.igUrl} onChange={s("igUrl")}/>
+      </div>
+      <div>
+        <label className="lbl" style={{display:"flex",alignItems:"center",gap:4}}><Sv s={10} c={SP}/>Spotify Track URL</label>
+        <input className="inp" placeholder="https://open.spotify.com/track/..." value={f.spUrl} onChange={s("spUrl")}/>
+      </div>
+      <div>
+        <label className="lbl">Chartex Song URL <span style={{fontWeight:400,color:"var(--t3)"}}>— embedded live below creator posts</span></label>
+        <input className="inp" placeholder="https://chartex.com/songs/..." value={f.cxUrl} onChange={s("cxUrl")}/>
+      </div>
       <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
         <button className="bo" onClick={onClose}>Cancel</button>
         <button className="bg" onClick={()=>f.name.trim()&&onSubmit(f)}>{init?"Save Changes":"Create Campaign"}</button>
@@ -290,14 +351,24 @@ function PostCard({post,onRefresh,onEdit,onDelete,ro}){
   const vv=Number(post.views)||0,lk=Number(post.likes)||0,cm=Number(post.comments)||0;
   const er=vv>0?((lk+cm)/vv*100).toFixed(2)+"%":"—";
   const ts=post._at?new Date(post._at).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):null;
+  const thumb=proxyThumb(post.thumbnail);
   return(
     <div style={{flexShrink:0,width:182,display:"flex",flexDirection:"column",animation:"up .2s ease"}}>
       <a href={post.postUrl} target="_blank" rel="noreferrer">
-        <div style={{width:182,height:324,borderRadius:12,overflow:"hidden",position:"relative",background:post.thumbnail?`url(${proxyThumb(post.thumbnail)}) center/cover no-repeat`:P.grad,border:".5px solid var(--b2)",boxShadow:"0 8px 32px rgba(0,0,0,.45)"}}>
+        <div style={{width:182,height:324,borderRadius:12,overflow:"hidden",position:"relative",background:thumb?`url(${thumb}) center/cover no-repeat`:P.grad,border:".5px solid var(--b2)",boxShadow:"0 8px 32px rgba(0,0,0,.45)"}}>
           <div style={{position:"absolute",inset:0,background:"linear-gradient(to top,rgba(0,0,0,.92) 0%,transparent 50%)"}}/>
-          <div style={{position:"absolute",top:10,left:10,background:"rgba(0,0,0,.7)",backdropFilter:"blur(3px)",borderRadius:6,padding:"3px 8px",display:"flex",alignItems:"center",gap:4}}><P.I s={11} c="#fff"/><span style={{color:"#fff",fontSize:10,fontWeight:700}}>{P.label}</span></div>
-          {isRef&&<div style={{position:"absolute",inset:0,background:"rgba(0,0,0,.65)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8}}><span className="spin"><Rf s={24} c="#fff"/></span><span style={{color:"#fff",fontSize:11,fontWeight:600}}>Fetching…</span></div>}
-          <div style={{position:"absolute",bottom:10,left:10,right:10}}><p style={{color:"#fff",fontSize:13,fontWeight:700}}>{post.handle?"@"+post.handle:"@creator"}</p></div>
+          <div style={{position:"absolute",top:10,left:10,background:"rgba(0,0,0,.7)",backdropFilter:"blur(3px)",borderRadius:6,padding:"3px 8px",display:"flex",alignItems:"center",gap:4}}>
+            <P.I s={11} c="#fff"/><span style={{color:"#fff",fontSize:10,fontWeight:700}}>{P.label}</span>
+          </div>
+          {isRef&&(
+            <div style={{position:"absolute",inset:0,background:"rgba(0,0,0,.65)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8}}>
+              <span className="spin"><Rf s={24} c="#fff"/></span>
+              <span style={{color:"#fff",fontSize:11,fontWeight:600}}>Fetching…</span>
+            </div>
+          )}
+          <div style={{position:"absolute",bottom:10,left:10,right:10}}>
+            <p style={{color:"#fff",fontSize:13,fontWeight:700}}>{post.handle?"@"+post.handle:"@creator"}</p>
+          </div>
         </div>
       </a>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:4,marginTop:7}}>
@@ -308,13 +379,27 @@ function PostCard({post,onRefresh,onEdit,onDelete,ro}){
           </div>
         ))}
       </div>
-      {post.saves&&<div style={{background:"var(--s2)",borderRadius:7,padding:"5px 8px",border:".5px solid var(--b1)",marginTop:4,display:"flex",justifyContent:"space-between"}}><span style={{fontSize:9,fontWeight:700,textTransform:"uppercase",color:"var(--t3)"}}>💾 Saves</span><span style={{fontSize:12,fontWeight:700}}>{fmt(post.saves)}</span></div>}
-      {post.budget&&<div style={{background:"rgba(201,168,76,0.08)",borderRadius:7,padding:"5px 8px",border:".5px solid var(--gb)",marginTop:4,display:"flex",justifyContent:"space-between"}}><span style={{fontSize:9,fontWeight:700,textTransform:"uppercase",color:"var(--t3)"}}>💰 Cost</span><span style={{fontSize:12,fontWeight:700,color:GOLD}}>${Number(post.budget).toLocaleString()}</span></div>}
-      {!ro&&<div style={{display:"flex",gap:4,marginTop:6}}>
-        <button className="bo" onClick={onRefresh} disabled={isRef} style={{flex:1,justifyContent:"center",padding:"5px",fontSize:10,opacity:isRef?0.5:1}}><Rf s={10} spin={isRef}/>{isRef?"…":"Refresh"}</button>
-        <button className="bo" onClick={onEdit} style={{padding:"5px 9px",fontSize:10}}><Pn s={10}/></button>
-        <button className="bo" onClick={onDelete} style={{padding:"5px 9px",fontSize:11,color:"var(--t3)"}}>✕</button>
-      </div>}
+      {post.saves&&(
+        <div style={{background:"var(--s2)",borderRadius:7,padding:"5px 8px",border:".5px solid var(--b1)",marginTop:4,display:"flex",justifyContent:"space-between"}}>
+          <span style={{fontSize:9,fontWeight:700,textTransform:"uppercase",color:"var(--t3)"}}>💾 Saves</span>
+          <span style={{fontSize:12,fontWeight:700}}>{fmt(post.saves)}</span>
+        </div>
+      )}
+      {post.budget&&(
+        <div style={{background:"rgba(201,168,76,0.08)",borderRadius:7,padding:"5px 8px",border:".5px solid var(--gb)",marginTop:4,display:"flex",justifyContent:"space-between"}}>
+          <span style={{fontSize:9,fontWeight:700,textTransform:"uppercase",color:"var(--t3)"}}>💰 Cost</span>
+          <span style={{fontSize:12,fontWeight:700,color:GOLD}}>{fmtUSD(post.budget)}</span>
+        </div>
+      )}
+      {!ro&&(
+        <div style={{display:"flex",gap:4,marginTop:6}}>
+          <button className="bo" onClick={onRefresh} disabled={isRef} style={{flex:1,justifyContent:"center",padding:"5px",fontSize:10,opacity:isRef?0.5:1}}>
+            <Rf s={10} spin={isRef}/>{isRef?"…":"Refresh"}
+          </button>
+          <button className="bo" onClick={onEdit} style={{padding:"5px 9px",fontSize:10}}><Pn s={10}/></button>
+          <button className="bo" onClick={onDelete} style={{padding:"5px 9px",fontSize:11,color:"var(--t3)"}}>✕</button>
+        </div>
+      )}
       {ts&&<p style={{fontSize:9,color:"var(--t3)",textAlign:"center",marginTop:3}}>Updated {ts}</p>}
     </div>
   );
@@ -326,13 +411,16 @@ function CxEmbed({url}){
   return(
     <div className="card" style={{marginBottom:14,overflow:"hidden"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"1rem 1.25rem",borderBottom:".5px solid var(--b1)"}}>
-        <div><div style={{fontSize:13,fontWeight:700,display:"flex",alignItems:"center",gap:8}}><Tt s={14} c={TT}/>Chartex Analytics <span style={{fontSize:10,color:TT,fontWeight:500}}>· live embed</span></div><div style={{fontSize:11,color:"var(--t2)",marginTop:2}}>Requires your Chartex login in this browser</div></div>
+        <div>
+          <div style={{fontSize:13,fontWeight:700,display:"flex",alignItems:"center",gap:8}}><Tt s={14} c={TT}/>Chartex Analytics <span style={{fontSize:10,color:TT,fontWeight:500}}>· live embed</span></div>
+          <div style={{fontSize:11,color:"var(--t2)",marginTop:2}}>Requires your Chartex login in this browser</div>
+        </div>
         <a href={url} target="_blank" rel="noreferrer" className="bo" style={{fontSize:11,flexShrink:0}}>Open Chartex ↗</a>
       </div>
       <div style={{position:"relative",background:"var(--s2)",minHeight:100}}>
         <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8,color:"var(--t3)",fontSize:12,zIndex:0,padding:"2rem"}}>
           <Tt s={28} c="rgba(105,201,208,0.2)"/>
-          <span style={{fontSize:10,textAlign:"center",maxWidth:280,lineHeight:1.55}}>If blank, your browser blocks third-party frames. <a href={url} target="_blank" style={{color:TT}}>Open Chartex directly ↗</a></span>
+          <span style={{fontSize:10,textAlign:"center",maxWidth:280,lineHeight:1.55}}>If blank, browser blocks third-party frames. <a href={url} target="_blank" style={{color:TT}}>Open Chartex directly ↗</a></span>
         </div>
         <iframe src={url} style={{width:"100%",height:680,border:"none",display:"block",position:"relative",zIndex:1}} title="Chartex" referrerPolicy="no-referrer-when-downgrade"/>
       </div>
@@ -342,9 +430,9 @@ function CxEmbed({url}){
 
 // ── DASHBOARD ─────────────────────────────────────────────
 function Dashboard({id,ro,cfg,db_,onDbChange}){
-  const camps=db_.campaigns||[];
+  const camps=db_?.campaigns||[];
   const camp=camps.find(c=>c.id===id)||null;
-  const posts=(db_.posts||{})[id]||[];
+  const posts=((db_?.posts)||{})[id]||[];
   const[spMeta,setSpMeta]=useState(null);
   const[soundStats,setSoundStats]=useState({tt:null,ig:null});
   const[syncing,setSyncing]=useState(false);
@@ -355,18 +443,38 @@ function Dashboard({id,ro,cfg,db_,onDbChange}){
 
   const setPosts=useCallback(next=>{
     const clean=next.map(({_ref,...r})=>r);
-    onDbChange({...db_,posts:{...(db_.posts||{}),[id]:clean}});
+    onDbChange({...db_,posts:{...(db_?.posts||{}),[id]:clean}});
   },[id,db_,onDbChange]);
 
   useEffect(()=>{if(camp)syncAll(camp)},[id]);
 
   const syncAll=async c=>{
+    if(!c)return;
     setSyncing(true);
-    if(c.spUrl&&cfg?.spId&&cfg?.spSec){try{const tok=await spToken(cfg.spId,cfg.spSec);const tid=spId(c.spUrl);if(tok&&tid){const m=await spTrack(tid,tok);if(m)setSpMeta(m)}}catch{}}
+    if(c.spUrl&&cfg?.spId&&cfg?.spSec){
+      try{const tok=await spToken(cfg.spId,cfg.spSec);const tid=spId(c.spUrl);if(tok&&tid){const m=await spTrack(tid,tok);if(m)setSpMeta(m)}}catch{}
+    }
     const ns={tt:null,ig:null};
-    if(c.ttUrl&&cfg?.hasRapid){const mid=ttMid(c.ttUrl);if(mid){const m=await fetchTTMusic(mid);if(m?.videoCount!=null)ns.tt=m.videoCount;}}
-    if(cfg?.cxId&&cfg?.cxToken){try{const sid=spId(c.spUrl);let song=sid?await cxFindSong(cfg,sid,null):null;if(!song&&c.artist)song=await cxFindSong(cfg,null,c.artist+" "+c.name);if(song){const st=await cxSongStats(cfg,song.id||song.song_id);if(st){if(ns.tt==null)ns.tt=st.tiktok_total_video_count||st.total_video_count||null;ns.ig=st.instagram_reels_count||st.reels_count||null;}}}catch{}}
-    setSoundStats(ns);setSyncing(false);
+    if(c.ttUrl&&cfg?.hasRapid){
+      const mid=ttMid(c.ttUrl);
+      if(mid){const m=await fetchTTMusic(mid);if(m?.videoCount!=null)ns.tt=m.videoCount;}
+    }
+    if(cfg?.cxId&&cfg?.cxToken){
+      try{
+        const sid=spId(c.spUrl);
+        let song=sid?await cxFindSong(cfg,sid,null):null;
+        if(!song&&c.artist)song=await cxFindSong(cfg,null,c.artist+" "+c.name);
+        if(song){
+          const st=await cxSongStats(cfg,song.id||song.song_id||song.chartex_id);
+          if(st){
+            if(ns.tt==null)ns.tt=st.tiktok_total_video_count||st.total_video_count||null;
+            ns.ig=st.instagram_reels_count||st.reels_count||null;
+          }
+        }
+      }catch{}
+    }
+    setSoundStats(ns);
+    setSyncing(false);
   };
 
   const addPost=data=>{setPosts([...posts,{...data,id:uid(),addedAt:Date.now(),_at:Date.now()}]);setModal(null)};
@@ -375,35 +483,54 @@ function Dashboard({id,ro,cfg,db_,onDbChange}){
 
   const refreshOne=useCallback(async p=>{
     if(!cfg?.hasRapid)return;
-    onDbChange({...db_,posts:{...(db_.posts||{}),[id]:posts.map(x=>x.id===p.id?{...x,_ref:true}:x)}});
+    onDbChange({...db_,posts:{...(db_?.posts||{}),[id]:posts.map(x=>x.id===p.id?{...x,_ref:true}:x)}});
     const d=await pullPost(p.postUrl);
     const next=posts.map(x=>x.id===p.id?{...x,...(d||{}),_ref:false,_at:Date.now()}:x);
     setPosts(next);
   },[id,posts,db_,cfg,onDbChange]);
 
   const refreshAll=useCallback(async()=>{
-    if(refAll||!cfg?.hasRapid)return;setRefAll(true);
-    onDbChange({...db_,posts:{...(db_.posts||{}),[id]:posts.map(p=>({...p,_ref:true}))}});
+    if(refAll||!cfg?.hasRapid)return;
+    setRefAll(true);
+    onDbChange({...db_,posts:{...(db_?.posts||{}),[id]:posts.map(p=>({...p,_ref:true}))}});
     const next=await Promise.all(posts.map(async p=>{const d=await pullPost(p.postUrl);return{...p,...(d||{}),_ref:false,_at:Date.now()}}));
-    setPosts(next);setRefAll(false);
+    setPosts(next);
+    setRefAll(false);
   },[id,posts,db_,cfg,onDbChange,refAll]);
 
   const saveCamp=data=>{onDbChange({...db_,campaigns:camps.map(c=>c.id===id?{...c,...data}:c)});setModal(null)};
-  const T=posts.reduce((a,p)=>({v:a.v+(Number(p.views)||0),l:a.l+(Number(p.likes)||0),c_:a.c_+(Number(p.comments)||0),s:a.s+(Number(p.saves)||0),b:a.b+(Number(p.budget)||0)}),{v:0,l:0,c_:0,s:0,b:0});
+
+  // Totals
+  const T=posts.reduce((a,p)=>({
+    v:  a.v +(Number(p.views)   ||0),
+    l:  a.l +(Number(p.likes)   ||0),
+    c_: a.c_+(Number(p.comments)||0),
+    s:  a.s +(Number(p.saves)   ||0),
+    b:  a.b +(Number(p.budget)  ||0),
+  }),{v:0,l:0,c_:0,s:0,b:0});
   const totalEr=T.v>0?((T.l+T.c_)/T.v*100).toFixed(2)+"%":"—";
+
+  // Budget & ROI
+  const emv=T.v*0.008; // ~$8 CPM music/entertainment industry benchmark
+  const roi=T.b>0?((emv-T.b)/T.b*100):0;
+  const cpv=T.v>0?(T.b/T.v):0;
+  const cpe=(T.l+T.c_+T.s)>0?(T.b/(T.l+T.c_+T.s)):0;
+
   const shareUrl=`${location.origin}${location.pathname}#/view/${id}`;
   const copyShare=()=>{try{navigator.clipboard.writeText(shareUrl)}catch{};setCopied(true);setTimeout(()=>setCopied(false),2200)};
 
-  if(!camp)return(
-    <div style={{textAlign:"center",padding:"4rem"}}>
-      <p style={{color:"var(--t2)",marginBottom:8,fontSize:15,fontWeight:600}}>Campaign not found</p>
-      <p style={{color:"var(--t3)",fontSize:13,marginBottom:20}}>It may still be loading from storage — try refreshing the page.</p>
-      <div style={{display:"flex",gap:10,justifyContent:"center"}}>
-        <button className="bo" onClick={()=>location.reload()}>Refresh Page</button>
-        <button className="bg" onClick={()=>location.hash="/"}>← All Campaigns</button>
+  if(!camp){
+    return(
+      <div style={{textAlign:"center",padding:"4rem"}}>
+        <p style={{color:"var(--t2)",marginBottom:8,fontSize:15,fontWeight:600}}>Campaign not found</p>
+        <p style={{color:"var(--t3)",fontSize:13,marginBottom:20}}>Try refreshing the page — it may still be loading from storage.</p>
+        <div style={{display:"flex",gap:10,justifyContent:"center"}}>
+          <button className="bo" onClick={()=>location.reload()}>Refresh Page</button>
+          <button className="bg" onClick={()=>location.hash="/"}>← All Campaigns</button>
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
 
   return(
     <div className="page">
@@ -419,7 +546,11 @@ function Dashboard({id,ro,cfg,db_,onDbChange}){
               {ro&&<span className="tag" style={{background:"var(--ga)",color:GOLD,border:".5px solid var(--gb)"}}>PUBLIC VIEW</span>}
               {syncing&&<span style={{fontSize:11,color:"var(--t3)",display:"flex",alignItems:"center",gap:4}}><span className="spin"><Rf s={10}/></span>Syncing…</span>}
             </div>
-            <p style={{color:"var(--t2)",fontSize:13,marginTop:2}}>{camp.artist}{spMeta?.name&&<> · <strong style={{color:"var(--t1)"}}>{spMeta.name}</strong></>}{spMeta?.pop!=null&&<span style={{marginLeft:8,color:GOLD,fontWeight:700,fontSize:12}}>★ {spMeta.pop}/100</span>}</p>
+            <p style={{color:"var(--t2)",fontSize:13,marginTop:2}}>
+              {camp.artist}
+              {spMeta?.name&&<> · <strong style={{color:"var(--t1)"}}>{spMeta.name}</strong></>}
+              {spMeta?.pop!=null&&<span style={{marginLeft:8,color:GOLD,fontWeight:700,fontSize:12}}>★ {spMeta.pop}/100</span>}
+            </p>
           </div>
         </div>
         <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
@@ -436,20 +567,44 @@ function Dashboard({id,ro,cfg,db_,onDbChange}){
         <div className="card pad" style={{marginBottom:14}}>
           <div style={{fontSize:13,fontWeight:700,marginBottom:12}}>Sound Page — Videos Using This Sound</div>
           <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-            {camp.ttUrl&&<div style={{flex:1,minWidth:160,background:"var(--ta)",border:".5px solid rgba(105,201,208,0.25)",borderRadius:10,padding:"14px 16px"}}><div style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}><Tt s={14} c={TT}/><span style={{fontSize:10,fontWeight:700,color:TT,textTransform:"uppercase",letterSpacing:".05em"}}>TikTok Sound</span></div><div style={{fontSize:32,fontWeight:800,color:TT,letterSpacing:"-.5px"}}>{soundStats.tt!=null?fmt(soundStats.tt):"—"}</div><div style={{fontSize:11,color:"var(--t3)",marginTop:2}}>videos created with this sound</div></div>}
-            {camp.igUrl&&<div style={{flex:1,minWidth:160,background:"var(--ia)",border:".5px solid rgba(225,48,108,0.25)",borderRadius:10,padding:"14px 16px"}}><div style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}><Ig s={14} c={IG}/><span style={{fontSize:10,fontWeight:700,color:IG,textTransform:"uppercase",letterSpacing:".05em"}}>Instagram Audio</span></div><div style={{fontSize:32,fontWeight:800,color:IG,letterSpacing:"-.5px"}}>{soundStats.ig!=null?fmt(soundStats.ig):"—"}</div><div style={{fontSize:11,color:"var(--t3)",marginTop:2}}>reels created with this audio</div></div>}
+            {camp.ttUrl&&(
+              <div style={{flex:1,minWidth:160,background:"var(--ta)",border:".5px solid rgba(105,201,208,0.25)",borderRadius:10,padding:"14px 16px"}}>
+                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}><Tt s={14} c={TT}/><span style={{fontSize:10,fontWeight:700,color:TT,textTransform:"uppercase",letterSpacing:".05em"}}>TikTok Sound</span></div>
+                <div style={{fontSize:32,fontWeight:800,color:TT,letterSpacing:"-.5px"}}>{soundStats.tt!=null?fmt(soundStats.tt):"—"}</div>
+                <div style={{fontSize:11,color:"var(--t3)",marginTop:2}}>videos created with this sound</div>
+              </div>
+            )}
+            {camp.igUrl&&(
+              <div style={{flex:1,minWidth:160,background:"var(--ia)",border:".5px solid rgba(225,48,108,0.25)",borderRadius:10,padding:"14px 16px"}}>
+                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}><Ig s={14} c={IG}/><span style={{fontSize:10,fontWeight:700,color:IG,textTransform:"uppercase",letterSpacing:".05em"}}>Instagram Audio</span></div>
+                <div style={{fontSize:32,fontWeight:800,color:IG,letterSpacing:"-.5px"}}>{soundStats.ig!=null?fmt(soundStats.ig):"—"}</div>
+                <div style={{fontSize:11,color:"var(--t3)",marginTop:2}}>reels created with this audio</div>
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {/* PERFORMANCE TOTALS */}
+      {/* CREATOR PERFORMANCE */}
       <div className="card pad" style={{marginBottom:14}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:10}}>
-          <div><div style={{fontSize:13,fontWeight:700}}>Creator Post Performance</div><div style={{fontSize:11,color:"var(--t2)",marginTop:2}}>{posts.length} post{posts.length!==1?"s":""} · live metrics via RapidAPI</div></div>
+          <div>
+            <div style={{fontSize:13,fontWeight:700}}>Creator Post Performance</div>
+            <div style={{fontSize:11,color:"var(--t2)",marginTop:2}}>{posts.length} post{posts.length!==1?"s":""} · live metrics via RapidAPI</div>
+          </div>
           {!ro&&<button className="bg" onClick={refreshAll} disabled={refAll}><Rf s={13} spin={refAll}/>{refAll?"Refreshing…":"Refresh All"}</button>}
         </div>
+
+        {/* METRIC TOTALS */}
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(115px,1fr))",gap:8}}>
-          {[["Total Views",fmt(T.v),true],["Total Likes",fmt(T.l)],["Total Comments",fmt(T.c_)],["Total Saves",fmt(T.s)],["Avg Eng Rate",totalEr],["Posts",String(posts.length)]].map(([l,v,g])=>(
+          {[
+            ["Total Views",fmt(T.v),true],
+            ["Total Likes",fmt(T.l),false],
+            ["Total Comments",fmt(T.c_),false],
+            ["Total Saves",fmt(T.s),false],
+            ["Avg Eng Rate",totalEr,false],
+            ["Posts",String(posts.length),false],
+          ].map(([l,v,g])=>(
             <div key={l} className="card pad" style={{borderTop:g?`2px solid ${GOLD}`:undefined}}>
               <div style={{fontSize:9,fontWeight:700,textTransform:"uppercase",letterSpacing:".07em",color:"var(--t2)",marginBottom:5}}>{l}</div>
               <div style={{fontSize:20,fontWeight:800,color:g?GOLD:"var(--t1)",letterSpacing:"-.5px"}}>{v}</div>
@@ -457,90 +612,142 @@ function Dashboard({id,ro,cfg,db_,onDbChange}){
           ))}
         </div>
 
-        {/* BUDGET & ROI */}
+        {/* BUDGET & ROI — only shows when at least one post has a cost */}
         {T.b>0&&(
-          <div style={{marginTop:14,paddingTop:14,borderTop:".5px solid var(--b1)"}}>
+          <div style={{marginTop:16,paddingTop:16,borderTop:".5px solid var(--b1)"}}>
             <div style={{fontSize:12,fontWeight:700,color:GOLD,marginBottom:10,textTransform:"uppercase",letterSpacing:".06em"}}>💰 Budget & ROI</div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(130px,1fr))",gap:8}}>
-              {(()=>{
-                const budget=T.b;
-                const views=T.v;
-                const eng=T.l+T.c_+T.s;
-                const emv=views*0.008; // ~$8 CPM music content industry estimate
-                const roi=budget>0?((emv-budget)/budget*100):0;
-                const cpv=views>0?(budget/views):0;
-                const cpe=eng>0?(budget/eng):0;
-                return[
-                  ["Total Budget","$"+T.b.toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:0}),GOLD,true],
-                  ["Est. Earned Media","$"+Math.round(emv).toLocaleString(),"var(--sp)"],
-                  ["ROI",(roi>=0?"+":"")+roi.toFixed(0)+"%",roi>=0?"var(--sp)":"var(--red)"],
-                  ["Cost / View",cpv>0?"$"+cpv.toFixed(4):"—","var(--t1)"],
-                  ["Cost / Engagement",cpe>0?"$"+cpe.toFixed(2):"—","var(--t1)"],
-                ].map(([l,v,col,border])=>(
-                  <div key={l} style={{background:"var(--s2)",borderRadius:10,padding:"10px 12px",border:border?".5px solid var(--gb)":".5px solid var(--b1)"}}>
-                    <div style={{fontSize:9,fontWeight:700,textTransform:"uppercase",letterSpacing:".07em",color:"var(--t2)",marginBottom:4}}>{l}</div>
-                    <div style={{fontSize:18,fontWeight:800,color:col,letterSpacing:"-.3px"}}>{v}</div>
-                  </div>
-                ));
-              })()}
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(130px,1fr))",gap:8,marginBottom:10}}>
+              <div style={{background:"rgba(201,168,76,0.08)",borderRadius:10,padding:"10px 12px",border:".5px solid var(--gb)"}}>
+                <div style={{fontSize:9,fontWeight:700,textTransform:"uppercase",letterSpacing:".07em",color:"var(--t2)",marginBottom:4}}>Total Budget</div>
+                <div style={{fontSize:20,fontWeight:800,color:GOLD,letterSpacing:"-.3px"}}>{fmtUSD(T.b)}</div>
+              </div>
+              <div style={{background:"rgba(29,185,84,0.08)",borderRadius:10,padding:"10px 12px",border:".5px solid rgba(29,185,84,0.3)"}}>
+                <div style={{fontSize:9,fontWeight:700,textTransform:"uppercase",letterSpacing:".07em",color:"var(--t2)",marginBottom:4}}>Est. Earned Media</div>
+                <div style={{fontSize:20,fontWeight:800,color:SP,letterSpacing:"-.3px"}}>{fmtUSD(Math.round(emv))}</div>
+              </div>
+              <div style={{background:roi>=0?"rgba(29,185,84,0.08)":"rgba(229,57,57,0.08)",borderRadius:10,padding:"10px 12px",border:`.5px solid ${roi>=0?"rgba(29,185,84,0.3)":"rgba(229,57,57,0.3)"}`}}>
+                <div style={{fontSize:9,fontWeight:700,textTransform:"uppercase",letterSpacing:".07em",color:"var(--t2)",marginBottom:4}}>ROI</div>
+                <div style={{fontSize:20,fontWeight:800,color:roi>=0?SP:"var(--red)",letterSpacing:"-.3px"}}>{roi>=0?"+":""}{roi.toFixed(0)}%</div>
+              </div>
+              <div style={{background:"var(--s2)",borderRadius:10,padding:"10px 12px",border:".5px solid var(--b1)"}}>
+                <div style={{fontSize:9,fontWeight:700,textTransform:"uppercase",letterSpacing:".07em",color:"var(--t2)",marginBottom:4}}>Cost / View</div>
+                <div style={{fontSize:20,fontWeight:800,color:"var(--t1)",letterSpacing:"-.3px"}}>{cpv>0?"$"+cpv.toFixed(4):"—"}</div>
+              </div>
+              <div style={{background:"var(--s2)",borderRadius:10,padding:"10px 12px",border:".5px solid var(--b1)"}}>
+                <div style={{fontSize:9,fontWeight:700,textTransform:"uppercase",letterSpacing:".07em",color:"var(--t2)",marginBottom:4}}>Cost / Engagement</div>
+                <div style={{fontSize:20,fontWeight:800,color:"var(--t1)",letterSpacing:"-.3px"}}>{cpe>0?"$"+cpe.toFixed(2):"—"}</div>
+              </div>
             </div>
-            <p style={{fontSize:10,color:"var(--t3)",marginTop:8}}>Estimated Earned Media Value based on ~$8 CPM music/entertainment industry benchmark · ROI = (EMV − Budget) / Budget</p>
+            <p style={{fontSize:10,color:"var(--t3)",lineHeight:1.55}}>EMV based on ~$8 CPM music/entertainment industry benchmark · ROI = (EMV − Budget) ÷ Budget</p>
           </div>
         )}
       </div>
 
-      {/* CREATOR POSTS */}}
+      {/* CREATOR POSTS */}
       <div className="card pad" style={{marginBottom:14}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:10}}>
-          <div><div style={{fontSize:13,fontWeight:700}}>Creator Posts</div><div style={{fontSize:11,color:"var(--t2)",marginTop:2}}>Paste TikTok or Instagram URL · metrics auto-pull · permanent across all devices</div></div>
+          <div>
+            <div style={{fontSize:13,fontWeight:700}}>Creator Posts</div>
+            <div style={{fontSize:11,color:"var(--t2)",marginTop:2}}>Paste TikTok or Instagram URL · metrics auto-pull · permanent across all devices</div>
+          </div>
           {!ro&&<button className="bg" onClick={()=>setModal("add")}>+ Add Post</button>}
         </div>
         {posts.length===0?(
           <div style={{textAlign:"center",padding:"3rem 1rem",border:".5px dashed var(--b2)",borderRadius:10}}>
             <div style={{fontSize:32,marginBottom:12}}>🎬</div>
             <p style={{fontSize:14,fontWeight:600,marginBottom:6}}>No creator posts yet</p>
-            <p style={{fontSize:12,color:"var(--t2)",marginBottom:16}}>Paste any TikTok or Instagram post URL — views, likes, comments and thumbnail pull via RapidAPI. Saved permanently across all devices.</p>
+            <p style={{fontSize:12,color:"var(--t2)",marginBottom:16}}>Paste any TikTok or Instagram post URL — views, likes, comments and thumbnail pull automatically. Saved permanently across all devices.</p>
             {!ro&&<button className="bg" onClick={()=>setModal("add")}>Add First Post</button>}
           </div>
         ):(
           <div className="sx" style={{paddingTop:2}}>
-            {posts.map(p=><PostCard key={p.id} post={p} onRefresh={()=>refreshOne(p)} onEdit={()=>{setEditTgt(p);setModal("edit-post")}} onDelete={()=>{setEditTgt(p);setModal("del")}} ro={ro}/>)}
+            {posts.map(p=>(
+              <PostCard
+                key={p.id}
+                post={p}
+                onRefresh={()=>refreshOne(p)}
+                onEdit={()=>{setEditTgt(p);setModal("edit-post")}}
+                onDelete={()=>{setEditTgt(p);setModal("del")}}
+                ro={ro}
+              />
+            ))}
           </div>
         )}
       </div>
 
+      {/* CHARTEX EMBED */}
       {camp.cxUrl&&<CxEmbed url={camp.cxUrl}/>}
 
-      {spMeta&&<div className="card pad" style={{marginBottom:14,display:"grid",gridTemplateColumns:"auto 1fr",gap:16,alignItems:"center"}}><img src={spMeta.art} alt="" style={{width:80,height:80,borderRadius:8,objectFit:"cover",border:".5px solid var(--b1)"}}/><div><div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}><Sv s={16} c={SP}/><span style={{fontSize:14,fontWeight:700}}>{spMeta.name}</span><span style={{fontSize:12,color:"var(--t2)"}}>· {spMeta.artist}</span></div>{spMeta.pop!=null&&<div style={{display:"flex",alignItems:"center",gap:10}}><div style={{flex:1,height:4,background:"var(--s2)",borderRadius:2,overflow:"hidden",maxWidth:220}}><div style={{height:"100%",width:spMeta.pop+"%",background:SP,borderRadius:2}}/></div><span style={{fontSize:12,fontWeight:700,color:SP}}>{spMeta.pop}/100</span>{camp.spUrl&&<a href={camp.spUrl} target="_blank" style={{background:SP,color:"#000",borderRadius:6,padding:"4px 10px",fontSize:11,fontWeight:700}}>Open in Spotify</a>}</div>}</div></div>}
+      {/* SPOTIFY */}
+      {spMeta&&(
+        <div className="card pad" style={{marginBottom:14,display:"grid",gridTemplateColumns:"auto 1fr",gap:16,alignItems:"center"}}>
+          <img src={spMeta.art} alt="" style={{width:80,height:80,borderRadius:8,objectFit:"cover",border:".5px solid var(--b1)"}}/>
+          <div>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+              <Sv s={16} c={SP}/>
+              <span style={{fontSize:14,fontWeight:700}}>{spMeta.name}</span>
+              <span style={{fontSize:12,color:"var(--t2)"}}>· {spMeta.artist}</span>
+            </div>
+            {spMeta.pop!=null&&(
+              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                <div style={{flex:1,height:4,background:"var(--s2)",borderRadius:2,overflow:"hidden",maxWidth:220}}>
+                  <div style={{height:"100%",width:spMeta.pop+"%",background:SP,borderRadius:2}}/>
+                </div>
+                <span style={{fontSize:12,fontWeight:700,color:SP}}>{spMeta.pop}/100</span>
+                {camp.spUrl&&<a href={camp.spUrl} target="_blank" style={{background:SP,color:"#000",borderRadius:6,padding:"4px 10px",fontSize:11,fontWeight:700}}>Open in Spotify</a>}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
+      {/* SHARE */}
       <div className="card pad" style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
-        <div style={{minWidth:0}}><p style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:".07em",color:"var(--t2)",marginBottom:3}}>Public share link — no login required</p><p style={{fontSize:11,color:GOLD,fontFamily:"monospace",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{shareUrl}</p></div>
+        <div style={{minWidth:0}}>
+          <p style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:".07em",color:"var(--t2)",marginBottom:3}}>Public share link — no login required</p>
+          <p style={{fontSize:11,color:GOLD,fontFamily:"monospace",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{shareUrl}</p>
+        </div>
         <button className="bg" onClick={copyShare} style={{flexShrink:0}}>{copied?"✓ Copied!":"Copy Link"}</button>
       </div>
 
+      {/* MODALS */}
       {modal==="add"&&<Modal title="Add Creator Post" onClose={()=>setModal(null)} mw={700}><PostForm cfg={cfg} onSubmit={addPost} onClose={()=>setModal(null)}/></Modal>}
       {modal==="edit-post"&&editTgt&&<Modal title="Edit Creator Post" onClose={()=>{setModal(null);setEditTgt(null)}} mw={700}><PostForm initial={editTgt} cfg={cfg} onSubmit={saveEdit} onClose={()=>{setModal(null);setEditTgt(null)}} label="Save Changes"/></Modal>}
       {modal==="edit-camp"&&<Modal title="Edit Campaign" onClose={()=>setModal(null)} mw={600}><CampForm init={camp} onSubmit={saveCamp} onClose={()=>setModal(null)}/></Modal>}
-      {modal==="del"&&editTgt&&<Modal title="Remove Post?" onClose={()=>{setModal(null);setEditTgt(null)}} mw={400}><p style={{fontSize:13,color:"var(--t2)",marginBottom:20}}>Remove @{editTgt.handle||"this creator"}'s post?</p><div style={{display:"flex",gap:10,justifyContent:"flex-end"}}><button className="bo" onClick={()=>{setModal(null);setEditTgt(null)}}>Cancel</button><button className="bg" style={{background:"var(--red)"}} onClick={()=>removePost(editTgt.id)}>Remove</button></div></Modal>}
+      {modal==="del"&&editTgt&&(
+        <Modal title="Remove Post?" onClose={()=>{setModal(null);setEditTgt(null)}} mw={400}>
+          <p style={{fontSize:13,color:"var(--t2)",marginBottom:20}}>Remove @{editTgt.handle||"this creator"}'s post?</p>
+          <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
+            <button className="bo" onClick={()=>{setModal(null);setEditTgt(null)}}>Cancel</button>
+            <button className="bg" style={{background:"var(--red)"}} onClick={()=>removePost(editTgt.id)}>Remove</button>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
 
 // ── CAMPAIGN LIST ─────────────────────────────────────────
-function CampaignList({db_,onDbChange,cfg}){
-  const camps=db_.campaigns||[];
+function CampaignList({db_,onDbChange}){
+  const camps=db_?.campaigns||[];
   const[modal,setModal]=useState(null);
   const[editTgt,setEditTgt]=useState(null);
   const[del,setDel]=useState(null);
+
   const create=f=>{const c={...f,id:uid(),createdAt:Date.now()};onDbChange({...db_,campaigns:[...camps,c]});setModal(null);location.hash="/campaign/"+c.id};
   const update=f=>{onDbChange({...db_,campaigns:camps.map(c=>c.id===editTgt.id?{...c,...f}:c)});setModal(null);setEditTgt(null)};
-  const remove=cid=>{const posts={...(db_.posts||{})};delete posts[cid];onDbChange({...db_,campaigns:camps.filter(c=>c.id!==cid),posts});setDel(null)};
+  const remove=cid=>{const posts={...(db_?.posts||{})};delete posts[cid];onDbChange({...db_,campaigns:camps.filter(c=>c.id!==cid),posts});setDel(null)};
+
   return(
     <div className="page">
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"2rem",flexWrap:"wrap",gap:12}}>
-        <div><h1 style={{fontSize:28,fontWeight:800,letterSpacing:"-.5px"}}><span style={{color:GOLD}}>✦</span> Creator Campaigns</h1><p style={{color:"var(--t2)",marginTop:4,fontSize:13}}>Live metrics via RapidAPI · Synced across all devices via JSONbin · Chartex embedded</p></div>
+        <div>
+          <h1 style={{fontSize:28,fontWeight:800,letterSpacing:"-.5px"}}><span style={{color:GOLD}}>✦</span> Creator Campaigns</h1>
+          <p style={{color:"var(--t2)",marginTop:4,fontSize:13}}>Live metrics · Cross-device sync · Chartex embedded</p>
+        </div>
         <button className="bg" onClick={()=>setModal("create")}>+ New Campaign</button>
       </div>
+
       {camps.length===0?(
         <div className="card" style={{padding:"5rem 2rem",textAlign:"center"}}>
           <div style={{fontSize:44,color:GOLD,marginBottom:18}}>✦</div>
@@ -551,10 +758,18 @@ function CampaignList({db_,onDbChange,cfg}){
       ):(
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:14}}>
           {camps.map(c=>(
-            <div key={c.id} className="card pad" style={{cursor:"pointer",transition:"border-color .15s"}} onMouseEnter={e=>e.currentTarget.style.borderColor="rgba(201,168,76,0.35)"} onMouseLeave={e=>e.currentTarget.style.borderColor="var(--b1)"} onClick={()=>location.hash="/campaign/"+c.id}>
+            <div key={c.id} className="card pad" style={{cursor:"pointer",transition:"border-color .15s"}}
+              onMouseEnter={e=>e.currentTarget.style.borderColor="rgba(201,168,76,0.35)"}
+              onMouseLeave={e=>e.currentTarget.style.borderColor="var(--b1)"}
+              onClick={()=>location.hash="/campaign/"+c.id}>
               <div style={{display:"flex",gap:12,marginBottom:12}}>
-                <div style={{width:42,height:42,borderRadius:8,background:"var(--ga)",border:".5px solid var(--gb)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><span style={{color:GOLD,fontSize:22}}>✦</span></div>
-                <div style={{flex:1,minWidth:0}}><p style={{fontWeight:700,fontSize:15,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</p><p style={{fontSize:12,color:"var(--t2)",marginTop:2}}>{c.artist}</p></div>
+                <div style={{width:42,height:42,borderRadius:8,background:"var(--ga)",border:".5px solid var(--gb)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                  <span style={{color:GOLD,fontSize:22}}>✦</span>
+                </div>
+                <div style={{flex:1,minWidth:0}}>
+                  <p style={{fontWeight:700,fontSize:15,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</p>
+                  <p style={{fontSize:12,color:"var(--t2)",marginTop:2}}>{c.artist}</p>
+                </div>
               </div>
               {c.desc&&<p style={{fontSize:12,color:"var(--t2)",lineHeight:1.5,marginBottom:10}}>{c.desc}</p>}
               <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
@@ -574,18 +789,23 @@ function CampaignList({db_,onDbChange,cfg}){
           ))}
         </div>
       )}
+
       {modal==="create"&&<Modal title="New Campaign" onClose={()=>setModal(null)} mw={600}><CampForm onSubmit={create} onClose={()=>setModal(null)}/></Modal>}
       {modal==="edit"&&editTgt&&<Modal title="Edit Campaign" onClose={()=>{setModal(null);setEditTgt(null)}} mw={600}><CampForm init={editTgt} onSubmit={update} onClose={()=>{setModal(null);setEditTgt(null)}}/></Modal>}
-      {del&&<Modal title="Delete Campaign?" onClose={()=>setDel(null)} mw={400}><p style={{fontSize:13,color:"var(--t2)",marginBottom:20}}>Delete this campaign and all its posts?</p><div style={{display:"flex",gap:10,justifyContent:"flex-end"}}><button className="bo" onClick={()=>setDel(null)}>Cancel</button><button className="bg" style={{background:"var(--red)"}} onClick={()=>remove(del)}>Delete</button></div></Modal>}
+      {del&&(
+        <Modal title="Delete Campaign?" onClose={()=>setDel(null)} mw={400}>
+          <p style={{fontSize:13,color:"var(--t2)",marginBottom:20}}>Delete this campaign and all its posts?</p>
+          <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
+            <button className="bo" onClick={()=>setDel(null)}>Cancel</button>
+            <button className="bg" style={{background:"var(--red)"}} onClick={()=>remove(del)}>Delete</button>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
 
 // ── APP ───────────────────────────────────────────────────
-// 1. Fetches /config from server (all API keys from Render env vars — no re-entry needed)
-// 2. Reads all data from JSONbin (same bin on every device = true cross-device sync)
-// 3. Every save writes back to JSONbin immediately
-// 4. Share links work because JSONbin is the source of truth, not localStorage
 function App(){
   const[hash,setHash]=useState(location.hash||"");
   const[cfg,setCfg]=useState(null);
@@ -593,36 +813,24 @@ function App(){
   const[ready,setReady]=useState(false);
   const[error,setError]=useState(null);
   const saving=useRef(false);
-  const pendingSave=useRef(null);
+  const pending=useRef(null);
 
   useEffect(()=>{
     (async()=>{
-      // Step 1: Get credentials from Render env vars via /config
+      // Step 1: load credentials from server
       let serverCfg={};
-      try{
-        const r=await fetch("/config");
-        if(r.ok)serverCfg=await r.json();
-        else console.warn("Could not fetch /config");
-      }catch(e){console.warn("Fetch /config failed:",e)}
+      try{const r=await fetch("/config");if(r.ok)serverCfg=await r.json()}catch(e){console.warn("fetch /config failed:",e)}
       setCfg(serverCfg);
 
-      // Step 2: Load all data from JSONbin
+      // Step 2: load data from JSONbin
       let data=null;
       if(serverCfg.jbKey&&serverCfg.jbBin){
-        console.log("Loading from JSONbin bin:",serverCfg.jbBin);
         data=await jbRead(serverCfg.jbKey,serverCfg.jbBin);
-        if(data){
-          console.log("JSONbin loaded:",data.campaigns?.length||0,"campaigns");
-        }else{
-          console.warn("JSONbin returned null — bin may be empty, using empty state");
-          data={campaigns:[],posts:{}};
-        }
-      }else{
-        console.warn("JSONBIN_KEY or JSONBIN_BIN not set on Render — data will NOT persist across devices!");
-        data={campaigns:[],posts:{}};
-        setError("JSONBIN_KEY or JSONBIN_BIN not set. Add them to Render environment variables.");
       }
-
+      if(!data){
+        if(!serverCfg.jbKey||!serverCfg.jbBin)setError("JSONBIN_KEY or JSONBIN_BIN not set on Render. Data will not sync across devices.");
+        data={campaigns:[],posts:{}};
+      }
       setDb(data);
       setReady(true);
     })();
@@ -634,30 +842,36 @@ function App(){
 
   const onDbChange=useCallback(async updated=>{
     setDb(updated);
-    // Debounced save to JSONbin to avoid too many writes
-    if(pendingSave.current)clearTimeout(pendingSave.current);
-    pendingSave.current=setTimeout(async()=>{
+    if(pending.current)clearTimeout(pending.current);
+    pending.current=setTimeout(async()=>{
       if(cfg?.jbKey&&cfg?.jbBin&&!saving.current){
         saving.current=true;
-        const ok=await jbWrite(cfg.jbKey,cfg.jbBin,updated);
-        console.log("JSONbin save:",ok?"ok":"failed");
+        await jbWrite(cfg.jbKey,cfg.jbBin,updated);
         saving.current=false;
       }
     },500);
   },[cfg]);
 
-  if(!ready)return(
-    <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",flexDirection:"column",gap:14,color:"var(--t3)",fontSize:13}}>
-      <div className="spin" style={{width:22,height:22,border:"2px solid rgba(255,255,255,0.08)",borderTopColor:GOLD,borderRadius:"50%"}}></div>
-      Loading from JSONbin…
-    </div>
-  );
+  if(!ready){
+    return(
+      <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",flexDirection:"column",gap:14,color:"var(--t3)",fontSize:13}}>
+        <div className="spin" style={{width:22,height:22,border:"2px solid rgba(255,255,255,0.08)",borderTopColor:GOLD,borderRadius:"50%"}}></div>
+        Loading from JSONbin…
+      </div>
+    );
+  }
 
   const h=(hash||"").replace("#","");
   let page;
-  if(h.startsWith("/campaign/")){const id=h.split("/")[2];page=<Dashboard id={id} ro={false} cfg={cfg} db_={db_} onDbChange={onDbChange}/>}
-  else if(h.startsWith("/view/")){const id=h.split("/")[2];page=<Dashboard id={id} ro={true} cfg={cfg} db_={db_} onDbChange={onDbChange}/>}
-  else page=<CampaignList db_={db_} onDbChange={onDbChange} cfg={cfg}/>;
+  if(h.startsWith("/campaign/")){
+    const id=h.split("/")[2];
+    page=<Dashboard id={id} ro={false} cfg={cfg} db_={db_} onDbChange={onDbChange}/>;
+  }else if(h.startsWith("/view/")){
+    const id=h.split("/")[2];
+    page=<Dashboard id={id} ro={true} cfg={cfg} db_={db_} onDbChange={onDbChange}/>;
+  }else{
+    page=<CampaignList db_={db_} onDbChange={onDbChange} cfg={cfg}/>;
+  }
 
   return(
     <>
