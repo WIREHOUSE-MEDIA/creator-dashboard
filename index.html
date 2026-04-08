@@ -145,9 +145,11 @@ async function fetchTTMusic(mid){
   }catch(e){console.error("fetchTTMusic:",e);return null}
 }
 async function fetchIGPost(code,originalUrl){
-  if(!code)return null;
+  if(!originalUrl&&!code)return null;
   try{
-    const r=await fetch(`/api/ig-post?code=${code}`);
+    // Pass the full original URL directly — API works with any Instagram URL format
+    const param=originalUrl||`https://www.instagram.com/p/${code}/`;
+    const r=await fetch(`/api/ig-post?postUrl=${encodeURIComponent(param)}`);
     if(!r.ok){console.error("IG http error:",r.status);return null}
     const d=await r.json();
     // instagram-statistics-api returns: {meta:{code:200}, data:{likes,comments,views,postImage}}
