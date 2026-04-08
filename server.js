@@ -78,14 +78,13 @@ app.get('/api/tt-music', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// Instagram post — tries instagram120 first, falls back to instagram-scraper-stable-api
+// Instagram post — instagram120 POST /api/instagram/mediaByShortcode
 app.get('/api/ig-post', async (req, res) => {
   const { code } = req.query;
   if (!code) return res.status(400).json({ error: 'Missing code' });
   if (!process.env.RAPID_KEY) return res.status(500).json({ error: 'RAPID_KEY not set' });
   try {
-    // Primary: instagram120 POST mediaByShortcode
-    const r1 = await fetch(`https://${IG_HOST}/api/instagram/mediaByShortcode`, {
+    const r = await fetch(`https://${IG_HOST}/api/instagram/mediaByShortcode`, {
       method: 'POST',
       headers: {
         'x-rapidapi-key': process.env.RAPID_KEY,
@@ -94,38 +93,40 @@ app.get('/api/ig-post', async (req, res) => {
       },
       body: JSON.stringify({ shortcode: code })
     });
-    const data1 = await r1.json();
-    console.log('IG primary status:', r1.status);
-    console.log('IG primary FULL response:', JSON.stringify(data1));
-
-    // Check if we got usable data from primary
-    const hasData = d => {
-      const flat = JSON.stringify(d);
-      return flat.includes('like_count') || flat.includes('view_count') ||
-             flat.includes('username') || flat.includes('display_url') ||
-             flat.includes('thumbnail');
-    };
-
-    if (r1.ok && hasData(data1)) {
-      return res.json(data1);
-    }
-
-    // Fallback: instagram-scraper-stable-api GET get_media_data_v2
-    console.log('IG primary had no usable data, trying fallback...');
-    const FALLBACK_HOST = 'instagram-scraper-stable-api.p.rapidapi.com';
-    const r2 = await fetch(`https://${FALLBACK_HOST}/get_media_data_v2.php?media_code=${code}`, {
-      headers: {
-        'x-rapidapi-key': process.env.RAPID_KEY,
-        'x-rapidapi-host': FALLBACK_HOST,
-        'Content-Type': 'application/json'
-      }
-    });
-    const data2 = await r2.json();
-    console.log('IG fallback status:', r2.status);
-    console.log('IG fallback FULL response:', JSON.stringify(data2));
-    res.json(data2);
+    const data = await r.json();
+    // Log full response to Render logs so we can see exact field names
+    console.log('IG status:', r.status);
+    console.log('IG FULL response:', JSON.stringify(data));
+    res.json(data);
   } catch(e) {
     console.error('IG error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Instagram audio creates count — extract reelId from audio URL
+// e.g. https://www.instagram.com/reels/audio/123456789/
+app.get('/api/ig-audio', async (req, res) => {
+  const { audioId } = req.query;
+  if (!audioId) return res.status(400).json({ error: 'Missing audioId' });
+  if (!process.env.RAPID_KEY) return res.status(500).json({ error: 'RAPID_KEY not set' });
+  try {
+    // instagram120 reels endpoint with audio filter
+    const r = await fetch(`https://${IG_HOST}/api/instagram/reels`, {
+      method: 'POST',
+      headers: {
+        'x-rapidapi-key': process.env.RAPID_KEY,
+        'x-rapidapi-host': IG_HOST,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ audio_id: audioId, maxId: '' })
+    });
+    const data = await r.json();
+    console.log('IG audio status:', r.status);
+    console.log('IG audio FULL response:', JSON.stringify(data).slice(0, 500));
+    res.json(data);
+  } catch(e) {
+    console.error('IG audio error:', e.message);
     res.status(500).json({ error: e.message });
   }
 });
