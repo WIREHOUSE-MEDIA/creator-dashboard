@@ -196,7 +196,7 @@ function Modal({title,onClose,children,mw=500}){
 function PostForm({initial,onSubmit,onClose,cfg,label}){
   const[url,setUrl]=useState(initial?.postUrl||"");
   const[st,setSt]=useState(initial?.postUrl?"done":"idle");
-  const[f,setF]=useState({platform:initial?.platform||"tiktok",handle:initial?.handle||"",thumbnail:initial?.thumbnail||"",views:initial?.views||"",likes:initial?.likes||"",comments:initial?.comments||"",saves:initial?.saves||""});
+  const[f,setF]=useState({platform:initial?.platform||"tiktok",handle:initial?.handle||"",thumbnail:initial?.thumbnail||"",views:initial?.views||"",likes:initial?.likes||"",comments:initial?.comments||"",saves:initial?.saves||"",budget:initial?.budget||""});
   const db=useRef(null);
   const sf=k=>e=>setF(p=>({...p,[k]:e.target.value}));
   const doFetch=useCallback(async raw=>{
@@ -246,6 +246,7 @@ function PostForm({initial,onSubmit,onClose,cfg,label}){
             <div><label className="lbl">Comments</label><input className="inp" type="number" min="0" placeholder="0" value={f.comments} onChange={sf("comments")}/></div>
             <div><label className="lbl">Saves</label><input className="inp" type="number" min="0" placeholder="0" value={f.saves} onChange={sf("saves")}/></div>
           </div>
+          <div><label className="lbl">Post Cost (USD) <span style={{fontWeight:400,color:"var(--t3)"}}>— what you paid this creator</span></label><div style={{position:"relative"}}><span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:"var(--t2)",fontSize:13}}>$</span><input className="inp" type="number" min="0" placeholder="0.00" value={f.budget||""} onChange={sf("budget")} style={{paddingLeft:22}}/></div></div>
           <div style={{background:"var(--s2)",borderRadius:8,padding:"8px 12px",display:"flex",justifyContent:"space-between",alignItems:"center",border:".5px solid var(--b1)"}}>
             <span style={{fontSize:11,color:"var(--t2)"}}>Engagement Rate (auto)</span>
             <span style={{fontSize:16,fontWeight:700,color:GOLD}}>{er}</span>
@@ -308,6 +309,7 @@ function PostCard({post,onRefresh,onEdit,onDelete,ro}){
         ))}
       </div>
       {post.saves&&<div style={{background:"var(--s2)",borderRadius:7,padding:"5px 8px",border:".5px solid var(--b1)",marginTop:4,display:"flex",justifyContent:"space-between"}}><span style={{fontSize:9,fontWeight:700,textTransform:"uppercase",color:"var(--t3)"}}>💾 Saves</span><span style={{fontSize:12,fontWeight:700}}>{fmt(post.saves)}</span></div>}
+      {post.budget&&<div style={{background:"rgba(201,168,76,0.08)",borderRadius:7,padding:"5px 8px",border:".5px solid var(--gb)",marginTop:4,display:"flex",justifyContent:"space-between"}}><span style={{fontSize:9,fontWeight:700,textTransform:"uppercase",color:"var(--t3)"}}>💰 Cost</span><span style={{fontSize:12,fontWeight:700,color:GOLD}}>${Number(post.budget).toLocaleString()}</span></div>}
       {!ro&&<div style={{display:"flex",gap:4,marginTop:6}}>
         <button className="bo" onClick={onRefresh} disabled={isRef} style={{flex:1,justifyContent:"center",padding:"5px",fontSize:10,opacity:isRef?0.5:1}}><Rf s={10} spin={isRef}/>{isRef?"…":"Refresh"}</button>
         <button className="bo" onClick={onEdit} style={{padding:"5px 9px",fontSize:10}}><Pn s={10}/></button>
@@ -387,7 +389,7 @@ function Dashboard({id,ro,cfg,db_,onDbChange}){
   },[id,posts,db_,cfg,onDbChange,refAll]);
 
   const saveCamp=data=>{onDbChange({...db_,campaigns:camps.map(c=>c.id===id?{...c,...data}:c)});setModal(null)};
-  const T=posts.reduce((a,p)=>({v:a.v+(Number(p.views)||0),l:a.l+(Number(p.likes)||0),c_:a.c_+(Number(p.comments)||0),s:a.s+(Number(p.saves)||0)}),{v:0,l:0,c_:0,s:0});
+  const T=posts.reduce((a,p)=>({v:a.v+(Number(p.views)||0),l:a.l+(Number(p.likes)||0),c_:a.c_+(Number(p.comments)||0),s:a.s+(Number(p.saves)||0),b:a.b+(Number(p.budget)||0)}),{v:0,l:0,c_:0,s:0,b:0});
   const totalEr=T.v>0?((T.l+T.c_)/T.v*100).toFixed(2)+"%":"—";
   const shareUrl=`${location.origin}${location.pathname}#/view/${id}`;
   const copyShare=()=>{try{navigator.clipboard.writeText(shareUrl)}catch{};setCopied(true);setTimeout(()=>setCopied(false),2200)};
@@ -454,9 +456,40 @@ function Dashboard({id,ro,cfg,db_,onDbChange}){
             </div>
           ))}
         </div>
+
+        {/* BUDGET & ROI */}
+        {T.b>0&&(
+          <div style={{marginTop:14,paddingTop:14,borderTop:".5px solid var(--b1)"}}>
+            <div style={{fontSize:12,fontWeight:700,color:GOLD,marginBottom:10,textTransform:"uppercase",letterSpacing:".06em"}}>💰 Budget & ROI</div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(130px,1fr))",gap:8}}>
+              {(()=>{
+                const budget=T.b;
+                const views=T.v;
+                const eng=T.l+T.c_+T.s;
+                const emv=views*0.008; // ~$8 CPM music content industry estimate
+                const roi=budget>0?((emv-budget)/budget*100):0;
+                const cpv=views>0?(budget/views):0;
+                const cpe=eng>0?(budget/eng):0;
+                return[
+                  ["Total Budget","$"+T.b.toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:0}),GOLD,true],
+                  ["Est. Earned Media","$"+Math.round(emv).toLocaleString(),"var(--sp)"],
+                  ["ROI",(roi>=0?"+":"")+roi.toFixed(0)+"%",roi>=0?"var(--sp)":"var(--red)"],
+                  ["Cost / View",cpv>0?"$"+cpv.toFixed(4):"—","var(--t1)"],
+                  ["Cost / Engagement",cpe>0?"$"+cpe.toFixed(2):"—","var(--t1)"],
+                ].map(([l,v,col,border])=>(
+                  <div key={l} style={{background:"var(--s2)",borderRadius:10,padding:"10px 12px",border:border?".5px solid var(--gb)":".5px solid var(--b1)"}}>
+                    <div style={{fontSize:9,fontWeight:700,textTransform:"uppercase",letterSpacing:".07em",color:"var(--t2)",marginBottom:4}}>{l}</div>
+                    <div style={{fontSize:18,fontWeight:800,color:col,letterSpacing:"-.3px"}}>{v}</div>
+                  </div>
+                ));
+              })()}
+            </div>
+            <p style={{fontSize:10,color:"var(--t3)",marginTop:8}}>Estimated Earned Media Value based on ~$8 CPM music/entertainment industry benchmark · ROI = (EMV − Budget) / Budget</p>
+          </div>
+        )}
       </div>
 
-      {/* CREATOR POSTS */}
+      {/* CREATOR POSTS */}}
       <div className="card pad" style={{marginBottom:14}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:10}}>
           <div><div style={{fontSize:13,fontWeight:700}}>Creator Posts</div><div style={{fontSize:11,color:"var(--t2)",marginTop:2}}>Paste TikTok or Instagram URL · metrics auto-pull · permanent across all devices</div></div>
