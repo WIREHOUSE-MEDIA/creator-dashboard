@@ -38,7 +38,8 @@ app.get('/api/test-ig', async (req, res) => {
   const { code } = req.query;
   if (!code) return res.send('Add ?code=SHORTCODE — e.g. /api/test-ig?code=DLUWkieNc0u');
   try {
-    const postUrl = `https://www.instagram.com/reel/${code}/`;
+    // Try both /reel/ and /p/ formats
+    const postUrl = code.startsWith('http') ? code : `https://www.instagram.com/reel/${code}/`;
     const r = await fetch(`https://${IG_HOST}/posts/one?postUrl=${encodeURIComponent(postUrl)}`, {
       headers: { 'x-rapidapi-key': process.env.RAPID_KEY, 'x-rapidapi-host': IG_HOST }
     });
@@ -79,13 +80,15 @@ app.get('/api/tt-music', async (req, res) => {
 });
 
 // Instagram post — instagram-statistics-api GET /posts/one?postUrl=
+// Accepts the full original URL directly — no reconstruction
 app.get('/api/ig-post', async (req, res) => {
-  const { code } = req.query;
-  if (!code) return res.status(400).json({ error: 'Missing code' });
+  const { postUrl } = req.query;
+  if (!postUrl) return res.status(400).json({ error: 'Missing postUrl' });
   if (!process.env.RAPID_KEY) return res.status(500).json({ error: 'RAPID_KEY not set' });
   try {
-    const postUrl = `https://www.instagram.com/reel/${code}/`;
-    const r = await fetch(`https://${IG_HOST}/posts/one?postUrl=${encodeURIComponent(postUrl)}`, {
+    const url = decodeURIComponent(postUrl);
+    console.log('[IG-POST] fetching:', url);
+    const r = await fetch(`https://${IG_HOST}/posts/one?postUrl=${encodeURIComponent(url)}`, {
       headers: { 'x-rapidapi-key': process.env.RAPID_KEY, 'x-rapidapi-host': IG_HOST }
     });
     const data = await r.json();
