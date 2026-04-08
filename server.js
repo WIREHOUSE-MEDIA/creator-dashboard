@@ -33,22 +33,6 @@ CHARTEX_TOKEN   ${check(process.env.CHARTEX_TOKEN)}
   </pre>`);
 });
 
-// TEST — visit /api/test-ig?code=DLUWkieNc0u to see exact raw response
-app.get('/api/test-ig', async (req, res) => {
-  const { code } = req.query;
-  if (!code) return res.send('Add ?code=SHORTCODE — e.g. /api/test-ig?code=DLUWkieNc0u');
-  try {
-    const postUrl = code.startsWith('http') ? code : `https://www.instagram.com/p/${code}/`;
-    const r = await fetch(`https://${IG_HOST}/post?url=${encodeURIComponent(postUrl)}`, {
-      headers: { 'x-rapidapi-key': process.env.RAPID_KEY, 'x-rapidapi-host': IG_HOST }
-    });
-    const data = await r.json();
-    res.send(`<pre style="font-size:12px;padding:2rem;background:#111;color:#0f0;overflow:auto;min-height:100vh">STATUS: ${r.status}\n\n${JSON.stringify(data, null, 2)}</pre>`);
-  } catch(e) {
-    res.send(`<pre style="color:red;padding:2rem">ERROR: ${e.message}</pre>`);
-  }
-});
-
 // TikTok post — tiktok-scraper2
 app.get('/api/tt-post', async (req, res) => {
   const { videoId, videoUrl } = req.query;
@@ -63,7 +47,7 @@ app.get('/api/tt-post', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// TikTok music — tiktok-api23
+// TikTok music/sound creates — tiktok-api23
 app.get('/api/tt-music', async (req, res) => {
   const { musicId } = req.query;
   if (!musicId) return res.status(400).json({ error: 'Missing musicId' });
@@ -78,30 +62,57 @@ app.get('/api/tt-music', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// Instagram post — instagram-looter2 GET /post?url=
-// Always normalize to /p/ format — API doesn't accept /reel/ format
+// Instagram post/reel — instagram-looter2
+// Tries /reel endpoint first for reels, falls back to /post
 app.get('/api/ig-post', async (req, res) => {
   const { postUrl } = req.query;
   if (!postUrl) return res.status(400).json({ error: 'Missing postUrl' });
   if (!process.env.RAPID_KEY) return res.status(500).json({ error: 'RAPID_KEY not set' });
   try {
     const raw = decodeURIComponent(postUrl);
-    // Extract shortcode from any IG URL format (/p/, /reel/, /tv/, /reels/)
+    const isReel = raw.includes('/reel');
     const code = raw.match(/\/(p|reel|reels|tv)\/([A-Za-z0-9_-]+)/)?.[2];
-    if (!code) return res.status(400).json({ error: 'Could not extract shortcode from URL' });
-    // Always use /p/ format — what instagram-looter2 accepts
-    const normalizedUrl = `https://www.instagram.com/p/${code}/`;
-    console.log('[IG-POST] normalized:', normalizedUrl);
-    const r = await fetch(`https://${IG_HOST}/post?url=${encodeURIComponent(normalizedUrl)}`, {
+    if (!code) return res.status(400).json({ error: 'Could not extract shortcode' });
+
+    const reelUrl  = `https://www.instagram.com/reel/${code}/`;
+    const postUrlN = `https://www.instagram.com/p/${code}/`;
+
+    const endpoints = isReel
+      ? [`https://${IG_HOST}/reel?url=${encodeURIComponent(reelUrl)}`,
+         `https://${IG_HOST}/post?url=${encodeURIComponent(postUrlN)}`]
+      : [`https://${IG_HOST}/post?url=${encodeURIComponent(postUrlN)}`,
+         `https://${IG_HOST}/reel?url=${encodeURIComponent(reelUrl)}`];
+
+    for (const endpoint of endpoints) {
+      console.log('[IG-POST] trying:', endpoint);
+      const r = await fetch(endpoint, {
+        headers: { 'x-rapidapi-key': process.env.RAPID_KEY, 'x-rapidapi-host': IG_HOST }
+      });
+      const data = await r.json();
+      console.log('[IG-POST] status:', r.status, 'success:', data?.status);
+      if (data?.status !== false) return res.json(data);
+    }
+    res.status(404).json({ error: 'Post not found' });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Instagram audio/sound creates — instagram-looter2 /music?id=
+// Audio ID from: instagram.com/reels/audio/841270117005292/
+app.get('/api/ig-music', async (req, res) => {
+  const { audioId } = req.query;
+  if (!audioId) return res.status(400).json({ error: 'Missing audioId' });
+  if (!process.env.RAPID_KEY) return res.status(500).json({ error: 'RAPID_KEY not set' });
+  try {
+    const r = await fetch(`https://${IG_HOST}/music?id=${audioId}`, {
       headers: { 'x-rapidapi-key': process.env.RAPID_KEY, 'x-rapidapi-host': IG_HOST }
     });
     const data = await r.json();
-    console.log('[IG-POST] status:', r.status, 'success:', data?.status);
+    console.log('[IG-MUSIC] FULL:', JSON.stringify(data));
     res.json(data);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// Proxy images
+// Proxy CDN images — bypasses Instagram/TikTok cross-origin blocks
 app.get('/api/proxy-image', async (req, res) => {
   const { url } = req.query;
   if (!url) return res.status(400).send('Missing url');
