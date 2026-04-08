@@ -96,25 +96,38 @@ async function jbWrite(key,bin,data){
 }
 
 // ── API CALLS — proxied through server ────────────────────
-async function fetchTTPost(vid){
+async function fetchTTPost(vid,originalUrl){
   if(!vid)return null;
   try{
-    const r=await fetch(`/api/tt-post?videoId=${vid}`);
+    const params=new URLSearchParams({videoId:vid});
+    if(originalUrl)params.set('videoUrl',encodeURIComponent(originalUrl));
+    const r=await fetch(`/api/tt-post?${params.toString()}`);
     if(!r.ok)return null;
     const d=await r.json();
-    const item=d?.itemInfo?.itemStruct||d?.data?.itemInfo?.itemStruct||d?.item||d?.data||d;
-    const st=item?.stats||item?.statistics||{};
-    const v=item?.video||{};
-    const auth=item?.author||{};
-    return{
-      views:   st.playCount   ||st.play_count   ||null,
-      likes:   st.diggCount   ||st.digg_count   ||null,
-      comments:st.commentCount||st.comment_count||null,
-      saves:   st.collectCount||st.collect_count||null,
-      thumbnail:v.cover||v.dynamicCover||null,
-      handle:  auth.uniqueId  ||auth.unique_id  ||auth.nickname||null,
-    };
-  }catch{return null}
+    console.log("TT raw:",JSON.stringify(d).slice(0,800));
+    // tiktok-scraper2 /video/info_v2 response shape
+    // tiktok-scraper2 wraps response in data{}
+    const item=d?.data
+      ||d?.itemInfo?.itemStruct
+      ||d?.videoData
+      ||d?.item
+      ||(Array.isArray(d?.items)?d.items[0]:null)
+      ||d;
+    // tiktok-scraper2 uses snake_case statistics
+    const st=item?.statistics||item?.stats||{};
+    const auth=item?.author||item?.authorMeta||{};
+    const vid2=item?.video||{};
+    // snake_case first (tiktok-scraper2), camelCase fallback (tiktok-api23)
+    const views   =Number(st.play_count  ||st.playCount  ||0)||null;
+    const likes   =Number(st.digg_count  ||st.diggCount  ||0)||null;
+    const comments=Number(st.comment_count||st.commentCount||0)||null;
+    const saves   =Number(st.collect_count||st.collectCount||0)||null;
+    const thumbnail=vid2.cover||vid2.dynamic_cover||vid2.dynamicCover||vid2.origin_cover||null;
+    const handle  =(auth.unique_id||auth.uniqueId||auth.nickname||"").replace(/^@/,"")||null;
+    console.log("TT parsed:",{views,likes,comments,handle,hasThumbnail:!!thumbnail});
+    if(!views&&!likes&&!handle&&!thumbnail)return null;
+    return{views,likes,comments,saves,thumbnail,handle};
+  }catch(e){console.error("fetchTTPost:",e);return null}
 }
 async function fetchTTMusic(mid){
   if(!mid)return null;
@@ -132,24 +145,114 @@ async function fetchIGPost(code){
     const r=await fetch(`/api/ig-post?code=${code}`);
     if(!r.ok)return null;
     const d=await r.json();
-    const item=d?.data||d?.media||d?.item||d;
-    return{
-      views:   item?.video_view_count||item?.view_count||null,
-      likes:   item?.like_count      ||item?.likes_count||null,
-      comments:item?.comment_count   ||null,
-      saves:   item?.saved_count     ||null,
-      thumbnail:item?.thumbnail_url  ||item?.image_url||item?.display_url||null,
-      handle:  item?.owner?.username ||item?.user?.username||null,
-    };
-  }catch{return null}
+    console.log("IG raw (first 1000):",JSON.stringify(d).slice(0,1000));
+
+    // Flatten out every possible wrapper shape
+    const item=d?.data?.shortcode_media   // graphql shape
+      ||d?.graphql?.shortcode_media
+      ||d?.data?.media
+      ||d?.data?.item
+      ||d?.data
+      ||d?.media
+      ||d?.result
+      ||d?.item
+      ||(Array.isArray(d?.items)?d.items[0]:null)
+      ||(Array.isArray(d?.data?.items)?d.data.items[0]:null)
+      ||d;
+
+    // Views — video_view_count is the main one for reels
+    const views=Number(
+      item?.video_view_count
+      ||item?.view_count
+      ||item?.play_count
+      ||item?.video_play_count
+      ||item?.edge_media_to_parent_comment?.count  // sometimes misused
+      ||0
+    )||null;
+
+    // Likes — multiple possible shapes
+    const likes=Number(
+      item?.like_count
+      ||item?.likes_count
+      ||item?.edge_liked_by?.count
+      ||item?.edge_media_preview_like?.count
+      ||item?.likes?.count
+      ||0
+    )||null;
+
+    // Comments
+    const comments=Number(
+      item?.comment_count
+      ||item?.comments_count
+      ||item?.edge_media_to_comment?.count
+      ||item?.comments?.count
+      ||0
+    )||null;
+
+    const saves=Number(item?.saved_count||0)||null;
+
+    // Thumbnail — try every known field
+    const thumbnail=
+      item?.thumbnail_url
+      ||item?.display_url
+      ||item?.image_url
+      ||item?.thumbnail_src
+      ||item?.thumbnail_resources?.[4]?.src
+      ||item?.thumbnail_resources?.[3]?.src
+      ||item?.carousel_media?.[0]?.display_url
+      ||item?.image?.url
+      ||item?.cover_url
+      ||null;
+
+    // Handle
+    const handle=(
+      item?.owner?.username
+      ||item?.user?.username
+      ||item?.username
+      ||""
+    ).replace(/^@/,"")||null;
+
+    console.log("IG parsed:",{views,likes,comments,handle,hasThumbnail:!!thumbnail});
+    if(!views&&!likes&&!handle&&!thumbnail){
+      console.warn("IG: no usable fields found — check Render logs for full response");
+      return null;
+    }
+    return{views,likes,comments,saves,thumbnail,handle};
+  }catch(e){console.error("fetchIGPost error:",e);return null}
 }
 async function pullPost(url){
   const p=getPlatform(url);
   if(!p)return null;
   const base={platform:p,postUrl:url,handle:"",thumbnail:null,views:null,likes:null,comments:null,saves:null};
-  if(p==="tiktok"){const d=await fetchTTPost(ttVid(url));return d?{...base,...d,platform:"tiktok"}:{...base,handle:ttUsr(url)||""}}
+  if(p==="tiktok"){const d=await fetchTTPost(ttVid(url),url);return d?{...base,...d,platform:"tiktok"}:{...base,handle:ttUsr(url)||""}}
   if(p==="instagram"){const d=await fetchIGPost(igCd(url));return d?{...base,...d,platform:"instagram"}:base}
   return base;
+}
+// Smart merge: never overwrite existing data with null/empty, metrics only increase
+function mergePostData(existing,fresh){
+  if(!fresh)return existing;
+  const keep=(oldVal,newVal)=>{
+    const n=Number(newVal);
+    const o=Number(oldVal);
+    // For numbers: keep whichever is higher (metrics never go down due to API weirdness)
+    if(n>0&&o>0)return n>o?newVal:oldVal;
+    if(n>0)return newVal;
+    return oldVal;
+  };
+  return{
+    ...existing,
+    // Handle: keep existing unless fresh has one and existing doesn't
+    handle:   existing.handle||fresh.handle||existing.handle,
+    // Thumbnail: keep existing unless fresh has one
+    thumbnail:fresh.thumbnail||existing.thumbnail,
+    // Metrics: only update if fresh value is higher than stored
+    views:    keep(existing.views,   fresh.views),
+    likes:    keep(existing.likes,   fresh.likes),
+    comments: keep(existing.comments,fresh.comments),
+    saves:    keep(existing.saves,   fresh.saves),
+    // Budget never touched by refresh
+    budget:   existing.budget,
+  };
 }
 
 // ── SPOTIFY ───────────────────────────────────────────────
@@ -485,7 +588,7 @@ function Dashboard({id,ro,cfg,db_,onDbChange}){
     if(!cfg?.hasRapid)return;
     onDbChange({...db_,posts:{...(db_?.posts||{}),[id]:posts.map(x=>x.id===p.id?{...x,_ref:true}:x)}});
     const d=await pullPost(p.postUrl);
-    const next=posts.map(x=>x.id===p.id?{...x,...(d||{}),_ref:false,_at:Date.now()}:x);
+    const next=posts.map(x=>x.id===p.id?{...mergePostData(x,d),_ref:false,_at:Date.now()}:x);
     setPosts(next);
   },[id,posts,db_,cfg,onDbChange]);
 
@@ -493,7 +596,7 @@ function Dashboard({id,ro,cfg,db_,onDbChange}){
     if(refAll||!cfg?.hasRapid)return;
     setRefAll(true);
     onDbChange({...db_,posts:{...(db_?.posts||{}),[id]:posts.map(p=>({...p,_ref:true}))}});
-    const next=await Promise.all(posts.map(async p=>{const d=await pullPost(p.postUrl);return{...p,...(d||{}),_ref:false,_at:Date.now()}}));
+    const next=await Promise.all(posts.map(async p=>{const d=await pullPost(p.postUrl);return{...mergePostData(p,d),_ref:false,_at:Date.now()}}));
     setPosts(next);
     setRefAll(false);
   },[id,posts,db_,cfg,onDbChange,refAll]);
