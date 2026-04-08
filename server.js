@@ -62,42 +62,30 @@ app.get('/api/tt-music', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// Instagram post/reel — instagram-looter2
-// Tries /reel endpoint first for reels, falls back to /post
+// Instagram post — instagram-looter2 GET /post?url=
+// Always normalizes to /p/ format which the API accepts
 app.get('/api/ig-post', async (req, res) => {
   const { postUrl } = req.query;
   if (!postUrl) return res.status(400).json({ error: 'Missing postUrl' });
   if (!process.env.RAPID_KEY) return res.status(500).json({ error: 'RAPID_KEY not set' });
   try {
     const raw = decodeURIComponent(postUrl);
-    const isReel = raw.includes('/reel');
+    // Extract shortcode from any IG URL format
     const code = raw.match(/\/(p|reel|reels|tv)\/([A-Za-z0-9_-]+)/)?.[2];
     if (!code) return res.status(400).json({ error: 'Could not extract shortcode' });
-
-    const reelUrl  = `https://www.instagram.com/reel/${code}/`;
-    const postUrlN = `https://www.instagram.com/p/${code}/`;
-
-    const endpoints = isReel
-      ? [`https://${IG_HOST}/reel?url=${encodeURIComponent(reelUrl)}`,
-         `https://${IG_HOST}/post?url=${encodeURIComponent(postUrlN)}`]
-      : [`https://${IG_HOST}/post?url=${encodeURIComponent(postUrlN)}`,
-         `https://${IG_HOST}/reel?url=${encodeURIComponent(reelUrl)}`];
-
-    for (const endpoint of endpoints) {
-      console.log('[IG-POST] trying:', endpoint);
-      const r = await fetch(endpoint, {
-        headers: { 'x-rapidapi-key': process.env.RAPID_KEY, 'x-rapidapi-host': IG_HOST }
-      });
-      const data = await r.json();
-      console.log('[IG-POST] status:', r.status, 'success:', data?.status);
-      if (data?.status !== false) return res.json(data);
-    }
-    res.status(404).json({ error: 'Post not found' });
+    // Always use /p/ — what instagram-looter2 accepts
+    const normalized = `https://www.instagram.com/p/${code}/`;
+    console.log('[IG-POST] fetching:', normalized);
+    const r = await fetch(`https://${IG_HOST}/post?url=${encodeURIComponent(normalized)}`, {
+      headers: { 'x-rapidapi-key': process.env.RAPID_KEY, 'x-rapidapi-host': IG_HOST }
+    });
+    const data = await r.json();
+    console.log('[IG-POST] status:', r.status, 'success:', data?.status);
+    res.json(data);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // Instagram audio/sound creates — instagram-looter2 /music?id=
-// Audio ID from: instagram.com/reels/audio/841270117005292/
 app.get('/api/ig-music', async (req, res) => {
   const { audioId } = req.query;
   if (!audioId) return res.status(400).json({ error: 'Missing audioId' });
