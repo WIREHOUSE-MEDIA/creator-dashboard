@@ -148,33 +148,75 @@ async function fetchIGPost(code){
   if(!code)return null;
   try{
     const r=await fetch(`/api/ig-post?code=${code}`);
-    if(!r.ok)return null;
+    if(!r.ok){console.error("IG http error:",r.status);return null}
     const d=await r.json();
-    console.log("IG raw:",JSON.stringify(d).slice(0,1000));
-    // instagram120 mediaByShortcode — try every known wrapper
-    const item=d?.data?.shortcode_media
-      ||d?.data?.media
-      ||d?.data?.item
-      ||d?.data
-      ||d?.shortcode_media
+    console.log("IG raw:",JSON.stringify(d).slice(0,1200));
+
+    // instagram120 uses Instagram internal API format
+    // Primary wrapper: d.data is the media object
+    const item=d?.data
       ||d?.media
       ||d?.result
       ||d?.item
-      ||(Array.isArray(d?.data?.items)?d.data.items[0]:null)
+      ||d?.shortcode_media
+      ||d?.graphql?.shortcode_media
       ||(Array.isArray(d?.items)?d.items[0]:null)
       ||d;
-    const views=Number(item?.video_view_count||item?.view_count||item?.play_count||item?.video_play_count||0)||null;
-    const likes=Number(item?.like_count||item?.likes_count||item?.edge_liked_by?.count||item?.edge_media_preview_like?.count||item?.likes?.count||0)||null;
-    const comments=Number(item?.comment_count||item?.comments_count||item?.edge_media_to_comment?.count||item?.comments?.count||0)||null;
+
+    // instagram120 internal format uses play_count for video views
+    const views=Number(
+      item?.play_count          // instagram120 internal: video plays
+      ||item?.video_view_count  // older format
+      ||item?.view_count
+      ||item?.video_play_count
+      ||0
+    )||null;
+
+    const likes=Number(
+      item?.like_count          // instagram120 internal
+      ||item?.likes_count
+      ||item?.edge_liked_by?.count
+      ||item?.edge_media_preview_like?.count
+      ||0
+    )||null;
+
+    const comments=Number(
+      item?.comment_count       // instagram120 internal
+      ||item?.comments_count
+      ||item?.edge_media_to_comment?.count
+      ||0
+    )||null;
+
     const saves=Number(item?.saved_count||0)||null;
-    const thumbnail=item?.display_url||item?.thumbnail_url||item?.image_url||item?.thumbnail_src
-      ||item?.thumbnail_resources?.[4]?.src||item?.thumbnail_resources?.[3]?.src
-      ||item?.carousel_media?.[0]?.display_url||item?.image?.url||null;
-    const handle=(item?.owner?.username||item?.user?.username||item?.username||"").replace(/^@/,"")||null;
+
+    // instagram120 internal format stores image in image_versions2.candidates array
+    const thumbnail=
+      item?.image_versions2?.candidates?.[0]?.url   // instagram120 internal ← main one
+      ||item?.carousel_media?.[0]?.image_versions2?.candidates?.[0]?.url
+      ||item?.display_url                            // graphql format
+      ||item?.thumbnail_url
+      ||item?.image_url
+      ||item?.thumbnail_src
+      ||item?.thumbnail_resources?.[4]?.src
+      ||null;
+
+    // instagram120 internal format stores user in item.user (not item.owner)
+    const handle=(
+      item?.user?.username      // instagram120 internal ← main one
+      ||item?.owner?.username   // graphql format
+      ||item?.username
+      ||""
+    ).replace(/^@/,"")||null;
+
     console.log("IG parsed:",{views,likes,comments,handle,hasThumbnail:!!thumbnail});
-    if(!views&&!likes&&!handle&&!thumbnail)return null;
+
+    // Return even partial data — let user fill in the rest manually
+    if(!likes&&!views&&!handle&&!thumbnail){
+      console.error("IG: zero usable fields. Full response:",JSON.stringify(d));
+      return null;
+    }
     return{views,likes,comments,saves,thumbnail,handle};
-  }catch(e){console.error("fetchIGPost:",e);return null}
+  }catch(e){console.error("fetchIGPost error:",e);return null}
 }
 async function pullPost(url){
   const p=getPlatform(url);
