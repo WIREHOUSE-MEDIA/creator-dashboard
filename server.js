@@ -4,7 +4,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 app.use(express.json());
 
-const IG_HOST = 'instagram120.p.rapidapi.com';
+const IG_HOST = 'instagram-statistics-api.p.rapidapi.com';
 const TT_HOST = 'tiktok-scraper2.p.rapidapi.com';
 const TT_MUS  = 'tiktok-api23.p.rapidapi.com';
 
@@ -33,15 +33,14 @@ CHARTEX_TOKEN   ${check(process.env.CHARTEX_TOKEN)}
   </pre>`);
 });
 
-// TEST — visit /api/test-ig?code=DPRcWdvgI4P to see raw instagram120 response
+// TEST — visit /api/test-ig?code=DLUWkieNc0u to see exact raw response
 app.get('/api/test-ig', async (req, res) => {
   const { code } = req.query;
-  if (!code) return res.send('Add ?code=SHORTCODE to URL. Example: /api/test-ig?code=DPRcWdvgI4P');
+  if (!code) return res.send('Add ?code=SHORTCODE — e.g. /api/test-ig?code=DLUWkieNc0u');
   try {
-    const r = await fetch(`https://${IG_HOST}/api/instagram/mediaByShortcode`, {
-      method: 'POST',
-      headers: { 'x-rapidapi-key': process.env.RAPID_KEY, 'x-rapidapi-host': IG_HOST, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ shortcode: code })
+    const postUrl = `https://www.instagram.com/reel/${code}/`;
+    const r = await fetch(`https://${IG_HOST}/posts/one?postUrl=${encodeURIComponent(postUrl)}`, {
+      headers: { 'x-rapidapi-key': process.env.RAPID_KEY, 'x-rapidapi-host': IG_HOST }
     });
     const data = await r.json();
     res.send(`<pre style="font-size:12px;padding:2rem;background:#111;color:#0f0;overflow:auto;min-height:100vh">STATUS: ${r.status}\n\n${JSON.stringify(data, null, 2)}</pre>`);
@@ -79,16 +78,15 @@ app.get('/api/tt-music', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// Instagram post — instagram120 POST mediaByShortcode
+// Instagram post — instagram-statistics-api GET /posts/one?postUrl=
 app.get('/api/ig-post', async (req, res) => {
   const { code } = req.query;
   if (!code) return res.status(400).json({ error: 'Missing code' });
   if (!process.env.RAPID_KEY) return res.status(500).json({ error: 'RAPID_KEY not set' });
   try {
-    const r = await fetch(`https://${IG_HOST}/api/instagram/mediaByShortcode`, {
-      method: 'POST',
-      headers: { 'x-rapidapi-key': process.env.RAPID_KEY, 'x-rapidapi-host': IG_HOST, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ shortcode: code })
+    const postUrl = `https://www.instagram.com/reel/${code}/`;
+    const r = await fetch(`https://${IG_HOST}/posts/one?postUrl=${encodeURIComponent(postUrl)}`, {
+      headers: { 'x-rapidapi-key': process.env.RAPID_KEY, 'x-rapidapi-host': IG_HOST }
     });
     const data = await r.json();
     console.log('[IG-POST] status:', r.status, 'FULL:', JSON.stringify(data));
