@@ -112,7 +112,7 @@ app.get('/api/ig-music', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// Proxy CDN images — bypasses Instagram/TikTok cross-origin blocks
+// Proxy CDN images — bypasses Instagram cross-origin blocks
 app.get('/api/proxy-image', async (req, res) => {
   const { url } = req.query;
   if (!url) return res.status(400).send('Missing url');
