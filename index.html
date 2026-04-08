@@ -228,7 +228,7 @@ function PostForm({initial,onSubmit,onClose,cfg,label}){
       <div style={{display:"grid",gridTemplateColumns:"175px 1fr",gap:18,alignItems:"start"}}>
         <div>
           <label className="lbl">Preview</label>
-          <div style={{width:175,height:311,borderRadius:10,overflow:"hidden",position:"relative",background:f.thumbnail?`url(${f.thumbnail}) center/cover no-repeat`:P.grad,border:".5px solid var(--b2)"}}>
+          <div style={{width:175,height:311,borderRadius:10,overflow:"hidden",position:"relative",background:f.thumbnail?`url(${proxyThumb(f.thumbnail)}) center/cover no-repeat`:P.grad,border:".5px solid var(--b2)"}}>
             <div style={{position:"absolute",inset:0,background:"linear-gradient(to top,rgba(0,0,0,.9) 0%,transparent 55%)"}}/>
             <div style={{position:"absolute",top:9,left:9,background:"rgba(0,0,0,.68)",borderRadius:6,padding:"3px 8px",display:"flex",alignItems:"center",gap:4}}><P.I s={11} c="#fff"/><span style={{color:"#fff",fontSize:10,fontWeight:700}}>{P.label}</span></div>
             <div style={{position:"absolute",bottom:10,left:10,right:10}}><p style={{color:"#fff",fontSize:13,fontWeight:700}}>@{f.handle||"creator"}</p></div>
@@ -293,7 +293,7 @@ function PostCard({post,onRefresh,onEdit,onDelete,ro}){
   return(
     <div style={{flexShrink:0,width:182,display:"flex",flexDirection:"column",animation:"up .2s ease"}}>
       <a href={post.postUrl} target="_blank" rel="noreferrer">
-        <div style={{width:182,height:324,borderRadius:12,overflow:"hidden",position:"relative",background:post.thumbnail?`url(${post.thumbnail}) center/cover no-repeat`:P.grad,border:".5px solid var(--b2)",boxShadow:"0 8px 32px rgba(0,0,0,.45)"}}>
+        <div style={{width:182,height:324,borderRadius:12,overflow:"hidden",position:"relative",background:post.thumbnail?`url(${proxyThumb(post.thumbnail)}) center/cover no-repeat`:P.grad,border:".5px solid var(--b2)",boxShadow:"0 8px 32px rgba(0,0,0,.45)"}}>
           <div style={{position:"absolute",inset:0,background:"linear-gradient(to top,rgba(0,0,0,.92) 0%,transparent 50%)"}}/>
           <div style={{position:"absolute",top:10,left:10,background:"rgba(0,0,0,.7)",backdropFilter:"blur(3px)",borderRadius:6,padding:"3px 8px",display:"flex",alignItems:"center",gap:4}}><P.I s={11} c="#fff"/><span style={{color:"#fff",fontSize:10,fontWeight:700}}>{P.label}</span></div>
           {isRef&&<div style={{position:"absolute",inset:0,background:"rgba(0,0,0,.65)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8}}><span className="spin"><Rf s={24} c="#fff"/></span><span style={{color:"#fff",fontSize:11,fontWeight:600}}>Fetching…</span></div>}
