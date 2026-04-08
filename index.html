@@ -73,7 +73,6 @@ const getPlatform=u=>{if(!u)return null;if(u.includes("tiktok.com"))return"tikto
 const proxyThumb=url=>{
   if(!url)return null;
   if(url.startsWith("/api/proxy-image"))return url;
-  // Only proxy Instagram CDN — TikTok loads fine without proxy
   if(url.includes("fbcdn")||url.includes("cdninstagram")||url.includes("instagram.f"))
     return`/api/proxy-image?url=${encodeURIComponent(url)}`;
   return url;
@@ -154,17 +153,13 @@ async function fetchIGPost(code,originalUrl){
     if(!r.ok){console.error("IG http error:",r.status);return null}
     const d=await r.json();
     if(!d||d.status===false){console.error("IG bad:",JSON.stringify(d).slice(0,200));return null}
-    // Views — video_view_count for reels/videos
-    const views=Math.max(0,Number(d.video_view_count||d.view_count||d.views||0))||null;
-    // Likes — never negative
+    const views   =Math.max(0,Number(d.video_view_count||d.view_count||d.views||0))||null;
     const rawLikes=d.edge_media_preview_like?.count??d.edge_liked_by?.count??d.likes??0;
-    const likes=rawLikes>0?Number(rawLikes):null;
-    // Comments
+    const likes   =rawLikes>0?Number(rawLikes):null;
     const comments=Math.max(0,Number(d.edge_media_to_parent_comment?.count||d.edge_media_preview_comment?.count||d.comments||0))||null;
-    // Store raw URL — proxyThumb() applies proxy on display in PostCard/PostForm
-    const thumbnail=d.thumbnail_src||d.display_url||d.thumbnail_url||null;
-    // Handle from owner field
-    const handle=(d.owner?.username||d.username||"").replace(/^@/,"")||null;
+    const rawThumb=d.thumbnail_src||d.display_url||d.thumbnail_url||null;
+    const thumbnail=rawThumb?`/api/proxy-image?url=${encodeURIComponent(rawThumb)}`:null;
+    const handle  =(d.owner?.username||d.username||"").replace(/^@/,"")||null;
     console.log("IG parsed:",{views,likes,comments,handle,hasThumbnail:!!thumbnail});
     if(!likes&&!views&&!handle&&!thumbnail)return null;
     return{views,likes,comments,saves:null,thumbnail,handle};
