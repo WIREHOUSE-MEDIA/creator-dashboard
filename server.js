@@ -29,7 +29,38 @@ CHARTEX_TOKEN   ${check(process.env.CHARTEX_TOKEN)}
   </pre>`);
 });
 
-// TikTok post metrics — tiktok-scraper2
+// TEST ENDPOINT — visit /api/test-ig?code=DLUWkieNc0u in browser to see raw API response
+app.get('/api/test-ig', async (req, res) => {
+  const { code } = req.query;
+  if (!code) return res.send('Add ?code=YOUR_SHORTCODE to the URL');
+  const KEY = process.env.RAPID_KEY;
+  const HOST = 'instagram-scraper-stable-api.p.rapidapi.com';
+  const results = {};
+  // Try every endpoint from your API list
+  try {
+    const r1 = await fetch(`https://${HOST}/get_media_data_v2.php?media_code=${code}`, {
+      headers: { 'x-rapidapi-key': KEY, 'x-rapidapi-host': HOST }
+    });
+    results.get_media_data_v2 = { status: r1.status, data: await r1.json() };
+  } catch(e) { results.get_media_data_v2 = { error: e.message }; }
+  try {
+    const postUrl = `https://www.instagram.com/reel/${code}/`;
+    const r2 = await fetch(`https://${HOST}/get_media_data.php?reel_post_code_or_url=${encodeURIComponent(postUrl)}&type=reel`, {
+      headers: { 'x-rapidapi-key': KEY, 'x-rapidapi-host': HOST }
+    });
+    results.get_media_data_reel = { status: r2.status, data: await r2.json() };
+  } catch(e) { results.get_media_data_reel = { error: e.message }; }
+  try {
+    const postUrl = `https://www.instagram.com/p/${code}/`;
+    const r3 = await fetch(`https://${HOST}/get_media_data.php?reel_post_code_or_url=${encodeURIComponent(postUrl)}&type=post`, {
+      headers: { 'x-rapidapi-key': KEY, 'x-rapidapi-host': HOST }
+    });
+    results.get_media_data_post = { status: r3.status, data: await r3.json() };
+  } catch(e) { results.get_media_data_post = { error: e.message }; }
+  res.send(`<pre style="font-size:12px;padding:2rem;background:#111;color:#0f0;overflow:auto;min-height:100vh">${JSON.stringify(results, null, 2)}</pre>`);
+});
+
+// TikTok post — tiktok-scraper2
 app.get('/api/tt-post', async (req, res) => {
   const { videoId, videoUrl } = req.query;
   if (!videoId) return res.status(400).json({ error: 'Missing videoId' });
@@ -43,7 +74,7 @@ app.get('/api/tt-post', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// TikTok music/sound creates — tiktok-api23
+// TikTok music — tiktok-api23
 app.get('/api/tt-music', async (req, res) => {
   const { musicId } = req.query;
   if (!musicId) return res.status(400).json({ error: 'Missing musicId' });
@@ -58,23 +89,40 @@ app.get('/api/tt-music', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// Instagram post — instagram-scraper-stable-api (confirmed subscribed)
-// Using get_media_data_v2.php with media_code from the post URL
+// Instagram post — tries both endpoints, returns whichever has data
 app.get('/api/ig-post', async (req, res) => {
   const { code } = req.query;
   if (!code) return res.status(400).json({ error: 'Missing code' });
   if (!process.env.RAPID_KEY) return res.status(500).json({ error: 'RAPID_KEY not set' });
+  const KEY = process.env.RAPID_KEY;
+  const HOST = 'instagram-scraper-stable-api.p.rapidapi.com';
+  const hasData = d => {
+    const s = JSON.stringify(d||{});
+    return s.includes('like') || s.includes('view') || s.includes('username') || s.includes('display_url') || s.includes('thumbnail');
+  };
+  // Try get_media_data_v2 first
   try {
-    const r = await fetch(`https://instagram-scraper-stable-api.p.rapidapi.com/get_media_data_v2.php?media_code=${code}`, {
-      headers: { 'x-rapidapi-key': process.env.RAPID_KEY, 'x-rapidapi-host': 'instagram-scraper-stable-api.p.rapidapi.com' }
+    const r = await fetch(`https://${HOST}/get_media_data_v2.php?media_code=${code}`, {
+      headers: { 'x-rapidapi-key': KEY, 'x-rapidapi-host': HOST }
     });
     const data = await r.json();
-    console.log('[IG-POST] status:', r.status, '| FULL:', JSON.stringify(data));
-    res.json(data);
-  } catch(e) { console.error('[IG-POST]', e.message); res.status(500).json({ error: e.message }); }
+    console.log('[IG v2] status:', r.status, 'FULL:', JSON.stringify(data));
+    if (r.ok && hasData(data)) return res.json({ _src: 'v2', ...data });
+  } catch(e) { console.error('[IG v2]', e.message); }
+  // Fallback: get_media_data with full reel URL
+  try {
+    const postUrl = `https://www.instagram.com/reel/${code}/`;
+    const r = await fetch(`https://${HOST}/get_media_data.php?reel_post_code_or_url=${encodeURIComponent(postUrl)}&type=reel`, {
+      headers: { 'x-rapidapi-key': KEY, 'x-rapidapi-host': HOST }
+    });
+    const data = await r.json();
+    console.log('[IG reel] status:', r.status, 'FULL:', JSON.stringify(data));
+    if (r.ok && hasData(data)) return res.json({ _src: 'reel', ...data });
+  } catch(e) { console.error('[IG reel]', e.message); }
+  res.status(404).json({ error: 'No data from any endpoint' });
 });
 
-// Proxy CDN images to bypass cross-origin blocks
+// Proxy images
 app.get('/api/proxy-image', async (req, res) => {
   const { url } = req.query;
   if (!url) return res.status(400).send('Missing url');
@@ -87,8 +135,5 @@ app.get('/api/proxy-image', async (req, res) => {
   } catch(e) { res.status(500).send(e.message); }
 });
 
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
-});
-
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
+app.listen(PORT, () => console.log(`Running on port ${PORT}`));
