@@ -63,9 +63,10 @@ const uid=()=>Math.random().toString(36).slice(2,10);
 const fmt=n=>{n=Number(n)||0;if(n>=1e9)return(n/1e9).toFixed(1)+"B";if(n>=1e6)return(n/1e6).toFixed(1)+"M";if(n>=1e3)return(n/1e3).toFixed(1)+"K";return Math.round(n).toLocaleString()};
 const fmtUSD=n=>"$"+(Number(n)||0).toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:0});
 const ttVid=u=>(u||"").match(/video\/(\d{10,25})/)?.[1]||null;
-const ttMid=u=>(u||"").match(/music\/[^?/]*?(\d{10,25})/)?.[1]||null;
+const ttMid=u=>{const m=(u||'').match(/music\/[^?/]*?(\d{10,25})/)||( u||'').match(/musicId=(\d+)/);return m?.[1]||null};
 const ttUsr=u=>(u||"").match(/@([^/?&\s]+)/)?.[1]||null;
 const igCd=u=>(u||"").match(/\/(p|reel|tv)\/([A-Za-z0-9_-]+)/)?.[2]||null;
+const igAudioId=u=>(u||"").match(/reels\/audio\/(\d+)/)?.[1]||null;
 const spId=u=>(u||"").match(/track\/([A-Za-z0-9]+)/)?.[1]||null;
 const getPlatform=u=>{if(!u)return null;if(u.includes("tiktok.com"))return"tiktok";if(u.includes("instagram.com"))return"instagram";return null};
 // Proxy Instagram/TikTok CDN images through server to avoid cross-origin blocks
@@ -135,9 +136,13 @@ async function fetchTTMusic(mid){
     const r=await fetch(`/api/tt-music?musicId=${mid}`);
     if(!r.ok)return null;
     const d=await r.json();
-    const st=d?.musicInfo?.stats||d?.data?.musicInfo?.stats||d?.stats||{};
-    return{videoCount:st.videoCount||null};
-  }catch{return null}
+    console.log("TTMusic raw:",JSON.stringify(d).slice(0,500));
+    const st=d?.musicInfo?.stats||d?.data?.musicInfo?.stats||d?.stats||d?.data?.stats||{};
+    const music=d?.musicInfo?.music||d?.data?.musicInfo?.music||d?.music||d?.data||{};
+    const count=st.videoCount||st.video_count||music.videoCount||music.video_count||d?.videoCount||null;
+    console.log("TTMusic videoCount:",count);
+    return{videoCount:count};
+  }catch(e){console.error("fetchTTMusic:",e);return null}
 }
 async function fetchIGPost(code){
   if(!code)return null;
@@ -145,80 +150,31 @@ async function fetchIGPost(code){
     const r=await fetch(`/api/ig-post?code=${code}`);
     if(!r.ok)return null;
     const d=await r.json();
-    console.log("IG raw (first 1000):",JSON.stringify(d).slice(0,1000));
-
-    // Flatten out every possible wrapper shape
-    const item=d?.data?.shortcode_media   // graphql shape
-      ||d?.graphql?.shortcode_media
+    console.log("IG raw:",JSON.stringify(d).slice(0,1000));
+    // instagram120 mediaByShortcode — try every known wrapper
+    const item=d?.data?.shortcode_media
       ||d?.data?.media
       ||d?.data?.item
       ||d?.data
+      ||d?.shortcode_media
       ||d?.media
       ||d?.result
       ||d?.item
-      ||(Array.isArray(d?.items)?d.items[0]:null)
       ||(Array.isArray(d?.data?.items)?d.data.items[0]:null)
+      ||(Array.isArray(d?.items)?d.items[0]:null)
       ||d;
-
-    // Views — video_view_count is the main one for reels
-    const views=Number(
-      item?.video_view_count
-      ||item?.view_count
-      ||item?.play_count
-      ||item?.video_play_count
-      ||item?.edge_media_to_parent_comment?.count  // sometimes misused
-      ||0
-    )||null;
-
-    // Likes — multiple possible shapes
-    const likes=Number(
-      item?.like_count
-      ||item?.likes_count
-      ||item?.edge_liked_by?.count
-      ||item?.edge_media_preview_like?.count
-      ||item?.likes?.count
-      ||0
-    )||null;
-
-    // Comments
-    const comments=Number(
-      item?.comment_count
-      ||item?.comments_count
-      ||item?.edge_media_to_comment?.count
-      ||item?.comments?.count
-      ||0
-    )||null;
-
+    const views=Number(item?.video_view_count||item?.view_count||item?.play_count||item?.video_play_count||0)||null;
+    const likes=Number(item?.like_count||item?.likes_count||item?.edge_liked_by?.count||item?.edge_media_preview_like?.count||item?.likes?.count||0)||null;
+    const comments=Number(item?.comment_count||item?.comments_count||item?.edge_media_to_comment?.count||item?.comments?.count||0)||null;
     const saves=Number(item?.saved_count||0)||null;
-
-    // Thumbnail — try every known field
-    const thumbnail=
-      item?.thumbnail_url
-      ||item?.display_url
-      ||item?.image_url
-      ||item?.thumbnail_src
-      ||item?.thumbnail_resources?.[4]?.src
-      ||item?.thumbnail_resources?.[3]?.src
-      ||item?.carousel_media?.[0]?.display_url
-      ||item?.image?.url
-      ||item?.cover_url
-      ||null;
-
-    // Handle
-    const handle=(
-      item?.owner?.username
-      ||item?.user?.username
-      ||item?.username
-      ||""
-    ).replace(/^@/,"")||null;
-
+    const thumbnail=item?.display_url||item?.thumbnail_url||item?.image_url||item?.thumbnail_src
+      ||item?.thumbnail_resources?.[4]?.src||item?.thumbnail_resources?.[3]?.src
+      ||item?.carousel_media?.[0]?.display_url||item?.image?.url||null;
+    const handle=(item?.owner?.username||item?.user?.username||item?.username||"").replace(/^@/,"")||null;
     console.log("IG parsed:",{views,likes,comments,handle,hasThumbnail:!!thumbnail});
-    if(!views&&!likes&&!handle&&!thumbnail){
-      console.warn("IG: no usable fields found — check Render logs for full response");
-      return null;
-    }
+    if(!views&&!likes&&!handle&&!thumbnail)return null;
     return{views,likes,comments,saves,thumbnail,handle};
-  }catch(e){console.error("fetchIGPost error:",e);return null}
+  }catch(e){console.error("fetchIGPost:",e);return null}
 }
 async function pullPost(url){
   const p=getPlatform(url);
@@ -558,10 +514,24 @@ function Dashboard({id,ro,cfg,db_,onDbChange}){
       try{const tok=await spToken(cfg.spId,cfg.spSec);const tid=spId(c.spUrl);if(tok&&tid){const m=await spTrack(tid,tok);if(m)setSpMeta(m)}}catch{}
     }
     const ns={tt:null,ig:null};
+    // Extract Instagram audio ID from the audio page URL
+    const igAid=igAudioId(c.igUrl);
     if(c.ttUrl&&cfg?.hasRapid){
       const mid=ttMid(c.ttUrl);
       if(mid){const m=await fetchTTMusic(mid);if(m?.videoCount!=null)ns.tt=m.videoCount;}
     }
+    // Try IG audio creates from instagram120
+    if(igAid&&cfg?.hasRapid){
+      try{
+        const r=await fetch(`/api/ig-audio?audioId=${igAid}`);
+        if(r.ok){
+          const d=await r.json();
+          const count=d?.count||d?.total||d?.reels_count||d?.data?.count||null;
+          if(count!=null)ns.ig=count;
+        }
+      }catch{}
+    }
+    // Chartex fallback for both TT and IG counts
     if(cfg?.cxId&&cfg?.cxToken){
       try{
         const sid=spId(c.spUrl);
@@ -571,7 +541,7 @@ function Dashboard({id,ro,cfg,db_,onDbChange}){
           const st=await cxSongStats(cfg,song.id||song.song_id||song.chartex_id);
           if(st){
             if(ns.tt==null)ns.tt=st.tiktok_total_video_count||st.total_video_count||null;
-            ns.ig=st.instagram_reels_count||st.reels_count||null;
+            if(ns.ig==null)ns.ig=st.instagram_reels_count||st.reels_count||null;
           }
         }
       }catch{}
