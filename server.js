@@ -4,7 +4,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 app.use(express.json());
 
-const IG_HOST = 'instagram-statistics-api.p.rapidapi.com';
+const IG_HOST = 'instagram-looter2.p.rapidapi.com';
 const TT_HOST = 'tiktok-scraper2.p.rapidapi.com';
 const TT_MUS  = 'tiktok-api23.p.rapidapi.com';
 
@@ -38,9 +38,8 @@ app.get('/api/test-ig', async (req, res) => {
   const { code } = req.query;
   if (!code) return res.send('Add ?code=SHORTCODE — e.g. /api/test-ig?code=DLUWkieNc0u');
   try {
-    // Try both /reel/ and /p/ formats
-    const postUrl = code.startsWith('http') ? code : `https://www.instagram.com/reel/${code}/`;
-    const r = await fetch(`https://${IG_HOST}/posts/one?postUrl=${encodeURIComponent(postUrl)}`, {
+    const postUrl = code.startsWith('http') ? code : `https://www.instagram.com/p/${code}/`;
+    const r = await fetch(`https://${IG_HOST}/post?url=${encodeURIComponent(postUrl)}`, {
       headers: { 'x-rapidapi-key': process.env.RAPID_KEY, 'x-rapidapi-host': IG_HOST }
     });
     const data = await r.json();
@@ -79,8 +78,7 @@ app.get('/api/tt-music', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// Instagram post — instagram-statistics-api GET /posts/one?postUrl=
-// Accepts the full original URL directly — no reconstruction
+// Instagram post — instagram-looter2 GET /post?url=
 app.get('/api/ig-post', async (req, res) => {
   const { postUrl } = req.query;
   if (!postUrl) return res.status(400).json({ error: 'Missing postUrl' });
@@ -88,11 +86,11 @@ app.get('/api/ig-post', async (req, res) => {
   try {
     const url = decodeURIComponent(postUrl);
     console.log('[IG-POST] fetching:', url);
-    const r = await fetch(`https://${IG_HOST}/posts/one?postUrl=${encodeURIComponent(url)}`, {
+    const r = await fetch(`https://${IG_HOST}/post?url=${encodeURIComponent(url)}`, {
       headers: { 'x-rapidapi-key': process.env.RAPID_KEY, 'x-rapidapi-host': IG_HOST }
     });
     const data = await r.json();
-    console.log('[IG-POST] status:', r.status, 'FULL:', JSON.stringify(data));
+    console.log('[IG-POST] status:', r.status);
     res.json(data);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
