@@ -72,7 +72,12 @@ const getPlatform=u=>{if(!u)return null;if(u.includes("tiktok.com"))return"tikto
 // Proxy Instagram/TikTok CDN images through server to avoid cross-origin blocks
 const proxyThumb=url=>{
   if(!url)return null;
-  if(url.includes("cdninstagram")||url.includes("fbcdn")||url.includes("instagram.com"))
+  // Already proxied — return as-is
+  if(url.startsWith("/api/proxy-image"))return url;
+  // Proxy all Instagram/TikTok CDN URLs
+  if(url.includes("fbcdn")||url.includes("cdninstagram")||
+     url.includes("fna.fbcdn")||url.includes("instagram.f")||
+     url.includes("p16-sign")||url.includes("tiktokcdn"))
     return`/api/proxy-image?url=${encodeURIComponent(url)}`;
   return url;
 };
@@ -151,13 +156,18 @@ async function fetchIGPost(code,originalUrl){
     const r=await fetch(`/api/ig-post?postUrl=${encodeURIComponent(param)}`);
     if(!r.ok){console.error("IG http error:",r.status);return null}
     const d=await r.json();
-    // instagram-looter2 /post response — top-level object with graphql-style fields
-    if(!d||d.status===false){console.error("IG bad response:",JSON.stringify(d).slice(0,200));return null}
-    const views   =Number(d.video_view_count||d.views||0)||null;
-    const likes   =Number(d.edge_media_preview_like?.count||d.edge_liked_by?.count||d.likes||0)||null;
-    const comments=Number(d.edge_media_to_parent_comment?.count||d.edge_media_preview_comment?.count||d.comments||0)||null;
+    if(!d||d.status===false){console.error("IG bad:",JSON.stringify(d).slice(0,200));return null}
+    // Views — video_view_count for reels/videos
+    const views=Math.max(0,Number(d.video_view_count||d.view_count||d.views||0))||null;
+    // Likes — never negative
+    const rawLikes=d.edge_media_preview_like?.count??d.edge_liked_by?.count??d.likes??0;
+    const likes=rawLikes>0?Number(rawLikes):null;
+    // Comments
+    const comments=Math.max(0,Number(d.edge_media_to_parent_comment?.count||d.edge_media_preview_comment?.count||d.comments||0))||null;
+    // Store raw URL — proxyThumb() applies proxy on display in PostCard/PostForm
     const thumbnail=d.thumbnail_src||d.display_url||d.thumbnail_url||null;
-    const handle  =(d.owner?.username||d.username||originalUrl?.match(/@([^/?&\s]+)/)?.[1]||"").replace(/^@/,"")||null;
+    // Handle from owner field
+    const handle=(d.owner?.username||d.username||"").replace(/^@/,"")||null;
     console.log("IG parsed:",{views,likes,comments,handle,hasThumbnail:!!thumbnail});
     if(!likes&&!views&&!handle&&!thumbnail)return null;
     return{views,likes,comments,saves:null,thumbnail,handle};
@@ -507,16 +517,19 @@ function Dashboard({id,ro,cfg,db_,onDbChange}){
       const mid=ttMid(c.ttUrl);
       if(mid){const m=await fetchTTMusic(mid);if(m?.videoCount!=null)ns.tt=m.videoCount;}
     }
-    // Try IG audio creates from instagram120
+    // IG audio creates from instagram-looter2 /music?id=
     if(igAid&&cfg?.hasRapid){
       try{
-        const r=await fetch(`/api/ig-audio?audioId=${igAid}`);
+        const r=await fetch(`/api/ig-music?audioId=${igAid}`);
         if(r.ok){
           const d=await r.json();
-          const count=d?.count||d?.total||d?.reels_count||d?.data?.count||null;
+          console.log("[IG-MUSIC]",JSON.stringify(d).slice(0,300));
+          const count=d?.reels_count||d?.clips_count||d?.media_count
+            ||d?.data?.reels_count||d?.data?.clips_count
+            ||d?.count||d?.total||null;
           if(count!=null)ns.ig=count;
         }
-      }catch{}
+      }catch(e){console.error("IG music:",e)}
     }
     // Chartex fallback for both TT and IG counts
     if(cfg?.cxId&&cfg?.cxToken){
