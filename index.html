@@ -59,8 +59,7 @@ select.inp option{background:var(--s2)}
 const {useState,useEffect,useRef,useCallback}=React;
 
 const GOLD="#C9A84C",TT="#69C9D0",IG="#E1306C",SP="#1DB954";
-const TT_HOST="tiktok-api23.p.rapidapi.com";
-const IG_HOST="instagram-scraper-stable-api.p.rapidapi.com";
+// RapidAPI calls go through server proxy endpoints to avoid CORS
 
 // ── UTILS ─────────────────────────────────────────────────
 const uid=()=>Math.random().toString(36).slice(2,10);
@@ -97,11 +96,11 @@ async function jbWrite(key,bin,data){
   }catch(e){console.error("JSONbin write error:",e);return false}
 }
 
-// ── RAPIDAPI ──────────────────────────────────────────────
-async function fetchTTPost(vid,key){
-  if(!vid||!key)return null;
+// ── API CALLS — all proxied through server to avoid CORS ──
+async function fetchTTPost(vid){
+  if(!vid)return null;
   try{
-    const r=await fetch(`https://${TT_HOST}/api/post/detail?videoId=${vid}`,{headers:{"x-rapidapi-key":key,"x-rapidapi-host":TT_HOST}});
+    const r=await fetch(`/api/tt-post?videoId=${vid}`);
     if(!r.ok)return null;
     const d=await r.json();
     const item=d?.itemInfo?.itemStruct||d?.data?.itemInfo?.itemStruct||d?.item||d?.data||d;
@@ -118,20 +117,20 @@ async function fetchTTPost(vid,key){
     };
   }catch{return null}
 }
-async function fetchTTMusic(mid,key){
-  if(!mid||!key)return null;
+async function fetchTTMusic(mid){
+  if(!mid)return null;
   try{
-    const r=await fetch(`https://${TT_HOST}/api/music/info?musicId=${mid}`,{headers:{"x-rapidapi-key":key,"x-rapidapi-host":TT_HOST}});
+    const r=await fetch(`/api/tt-music?musicId=${mid}`);
     if(!r.ok)return null;
     const d=await r.json();
     const st=d?.musicInfo?.stats||d?.data?.musicInfo?.stats||d?.stats||{};
     return{videoCount:st.videoCount||null};
   }catch{return null}
 }
-async function fetchIGPost(code,key){
-  if(!code||!key)return null;
+async function fetchIGPost(code){
+  if(!code)return null;
   try{
-    const r=await fetch(`https://${IG_HOST}/get_media_data_v2.php?media_code=${code}`,{headers:{"x-rapidapi-key":key,"x-rapidapi-host":IG_HOST}});
+    const r=await fetch(`/api/ig-post?code=${code}`);
     if(!r.ok)return null;
     const d=await r.json();
     const item=d?.data||d?.media||d?.item||d;
@@ -145,12 +144,12 @@ async function fetchIGPost(code,key){
     };
   }catch{return null}
 }
-async function pullPost(url,cfg){
+async function pullPost(url){
   const p=plat(url);
-  if(!p||!cfg?.rapidKey)return null;
+  if(!p)return null;
   const base={platform:p,postUrl:url,handle:"",thumbnail:null,views:null,likes:null,comments:null,saves:null};
-  if(p==="tiktok"){const d=await fetchTTPost(ttVid(url),cfg.rapidKey);return d?{...base,...d,platform:"tiktok"}:{...base,handle:ttUsr(url)||""}}
-  if(p==="instagram"){const d=await fetchIGPost(igCd(url),cfg.rapidKey);return d?{...base,...d,platform:"instagram"}:base}
+  if(p==="tiktok"){const d=await fetchTTPost(ttVid(url));return d?{...base,...d,platform:"tiktok"}:{...base,handle:ttUsr(url)||""}}
+  if(p==="instagram"){const d=await fetchIGPost(igCd(url));return d?{...base,...d,platform:"instagram"}:base}
   return base;
 }
 
@@ -203,7 +202,7 @@ function PostForm({initial,onSubmit,onClose,cfg,label}){
   const doFetch=useCallback(async raw=>{
     const u=raw.trim();if(!plat(u)){setSt("idle");return}
     setSt("fetching");
-    const d=await pullPost(u,cfg);
+    const d=await pullPost(u);
     if(d&&(d.views!=null||d.likes!=null||d.thumbnail||d.handle)){
       setF(p=>({...p,platform:d.platform||p.platform,handle:d.handle||p.handle,thumbnail:d.thumbnail||p.thumbnail,views:d.views!=null?String(d.views):p.views,likes:d.likes!=null?String(d.likes):p.likes,comments:d.comments!=null?String(d.comments):p.comments,saves:d.saves!=null?String(d.saves):p.saves}));
       setSt("done");
@@ -214,7 +213,7 @@ function PostForm({initial,onSubmit,onClose,cfg,label}){
   const er=vv>0?((lk+cm)/vv*100).toFixed(2)+"%":"—";
   const P=PC[f.platform]||PC.tiktok;
   const stC={idle:"var(--t3)",fetching:GOLD,done:SP,error:IG};
-  const stM={idle:"Paste TikTok or Instagram URL — metrics pull automatically via RapidAPI",fetching:"Fetching live metrics…",done:"✓ Metrics loaded — edit any field if needed",error:"Post may be private. Fill in manually below."};
+  const stM={idle:"Paste TikTok or Instagram URL — metrics pull automatically",fetching:"Fetching live metrics…",done:"✓ Metrics loaded — edit any field if needed",error:"Post may be private. Fill in manually below."};
   return(
     <>
       <div style={{marginBottom:14}}>
@@ -363,7 +362,7 @@ function Dashboard({id,ro,cfg,db_,onDbChange}){
     setSyncing(true);
     if(c.spUrl&&cfg?.spId&&cfg?.spSec){try{const tok=await spToken(cfg.spId,cfg.spSec);const tid=spId(c.spUrl);if(tok&&tid){const m=await spTrack(tid,tok);if(m)setSpMeta(m)}}catch{}}
     const ns={tt:null,ig:null};
-    if(c.ttUrl&&cfg?.rapidKey){const mid=ttMid(c.ttUrl);if(mid){const m=await fetchTTMusic(mid,cfg.rapidKey);if(m?.videoCount!=null)ns.tt=m.videoCount;}}
+    if(c.ttUrl&&cfg?.hasRapid){const mid=ttMid(c.ttUrl);if(mid){const m=await fetchTTMusic(mid);if(m?.videoCount!=null)ns.tt=m.videoCount;}}
     if(cfg?.cxId&&cfg?.cxToken){try{const sid=spId(c.spUrl);let song=sid?await cxFindSong(cfg,sid,null):null;if(!song&&c.artist)song=await cxFindSong(cfg,null,c.artist+" "+c.name);if(song){const st=await cxSongStats(cfg,song.id||song.song_id);if(st){if(ns.tt==null)ns.tt=st.tiktok_total_video_count||st.total_video_count||null;ns.ig=st.instagram_reels_count||st.reels_count||null;}}}catch{}}
     setSoundStats(ns);setSyncing(false);
   };
@@ -373,17 +372,17 @@ function Dashboard({id,ro,cfg,db_,onDbChange}){
   const removePost=pid=>{setPosts(posts.filter(p=>p.id!==pid));setModal(null);setEditTgt(null)};
 
   const refreshOne=useCallback(async p=>{
-    if(!cfg?.rapidKey)return;
+    if(!cfg?.hasRapid)return;
     onDbChange({...db_,posts:{...(db_.posts||{}),[id]:posts.map(x=>x.id===p.id?{...x,_ref:true}:x)}});
-    const d=await pullPost(p.postUrl,cfg);
+    const d=await pullPost(p.postUrl);
     const next=posts.map(x=>x.id===p.id?{...x,...(d||{}),_ref:false,_at:Date.now()}:x);
     setPosts(next);
   },[id,posts,db_,cfg,onDbChange]);
 
   const refreshAll=useCallback(async()=>{
-    if(refAll||!cfg?.rapidKey)return;setRefAll(true);
+    if(refAll||!cfg?.hasRapid)return;setRefAll(true);
     onDbChange({...db_,posts:{...(db_.posts||{}),[id]:posts.map(p=>({...p,_ref:true}))}});
-    const next=await Promise.all(posts.map(async p=>{const d=await pullPost(p.postUrl,cfg);return{...p,...(d||{}),_ref:false,_at:Date.now()}}));
+    const next=await Promise.all(posts.map(async p=>{const d=await pullPost(p.postUrl);return{...p,...(d||{}),_ref:false,_at:Date.now()}}));
     setPosts(next);setRefAll(false);
   },[id,posts,db_,cfg,onDbChange,refAll]);
 
