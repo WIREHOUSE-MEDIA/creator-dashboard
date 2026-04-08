@@ -144,30 +144,25 @@ async function fetchTTMusic(mid){
     return{videoCount:count};
   }catch(e){console.error("fetchTTMusic:",e);return null}
 }
-async function fetchIGPost(code,fullUrl){
-  if(!code&&!fullUrl)return null;
+async function fetchIGPost(code){
+  if(!code)return null;
   try{
-    // instagram-statistics-api takes the full post URL directly
-    const postUrl=fullUrl||`https://www.instagram.com/p/${code}/`;
-    const r=await fetch(`/api/ig-post?postUrl=${encodeURIComponent(postUrl)}`);
+    const r=await fetch(`/api/ig-post?code=${code}`);
     if(!r.ok){console.error("IG http error:",r.status);return null}
     const d=await r.json();
     console.log("IG raw:",JSON.stringify(d).slice(0,1200));
-    // instagram-statistics-api response — try all known shapes
-    const item=d?.data||d?.result||d?.post||d?.media||d?.item
+    // instagram-scraper-stable-api get_media_data_v2 response
+    const item=d?.data||d?.result||d?.media||d?.item
       ||(Array.isArray(d?.items)?d.items[0]:null)
-      ||(Array.isArray(d)?d[0]:null)
       ||d;
-    const views=Number(item?.video_view_count||item?.videoViewCount||item?.view_count||item?.viewCount||item?.plays||item?.play_count||item?.reelVideoViewCount||0)||null;
-    const likes=Number(item?.like_count||item?.likeCount||item?.likes||item?.likes_count||item?.edge_liked_by?.count||item?.edge_media_preview_like?.count||0)||null;
-    const comments=Number(item?.comment_count||item?.commentCount||item?.comments||item?.comments_count||item?.edge_media_to_comment?.count||0)||null;
-    const saves=Number(item?.saved_count||item?.save_count||item?.saves||0)||null;
-    const thumbnail=item?.thumbnail_url||item?.thumbnailUrl||item?.display_url||item?.displayUrl
-      ||item?.image_url||item?.imageUrl||item?.image
-      ||item?.thumbnail_resources?.[4]?.src
-      ||item?.carousel_media?.[0]?.display_url
-      ||item?.coverImage||null;
-    const handle=(item?.owner?.username||item?.user?.username||item?.ownerUsername||item?.username||item?.author||"").replace(/^@/,"")||null;
+    const views=Number(item?.video_view_count||item?.view_count||item?.play_count||item?.video_play_count||0)||null;
+    const likes=Number(item?.like_count||item?.likes_count||item?.edge_media_preview_like?.count||item?.edge_liked_by?.count||0)||null;
+    const comments=Number(item?.comment_count||item?.comments_count||item?.edge_media_to_comment?.count||0)||null;
+    const saves=Number(item?.saved_count||0)||null;
+    const thumbnail=item?.thumbnail_url||item?.display_url||item?.image_url
+      ||item?.thumbnail_resources?.[4]?.src||item?.thumbnail_resources?.[3]?.src
+      ||item?.carousel_media?.[0]?.display_url||null;
+    const handle=(item?.owner?.username||item?.user?.username||item?.username||"").replace(/^@/,"")||null;
     console.log("IG parsed:",{views,likes,comments,handle,hasThumbnail:!!thumbnail});
     if(!likes&&!views&&!handle&&!thumbnail)return null;
     return{views,likes,comments,saves,thumbnail,handle};
@@ -178,7 +173,7 @@ async function pullPost(url){
   if(!p)return null;
   const base={platform:p,postUrl:url,handle:"",thumbnail:null,views:null,likes:null,comments:null,saves:null};
   if(p==="tiktok"){const d=await fetchTTPost(ttVid(url),url);return d?{...base,...d,platform:"tiktok"}:{...base,handle:ttUsr(url)||""}}
-  if(p==="instagram"){const d=await fetchIGPost(igCd(url),url);return d?{...base,...d,platform:"instagram"}:base}
+  if(p==="instagram"){const d=await fetchIGPost(igCd(url));return d?{...base,...d,platform:"instagram"}:base}
   return base;
 }
 // Smart merge: never overwrite existing data with null/empty, metrics only increase
