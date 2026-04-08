@@ -65,7 +65,7 @@ const fmtUSD=n=>"$"+(Number(n)||0).toLocaleString(undefined,{minimumFractionDigi
 const ttVid=u=>(u||"").match(/video\/(\d{10,25})/)?.[1]||null;
 const ttMid=u=>{const m=(u||'').match(/music\/[^?/]*?(\d{10,25})/)||( u||'').match(/musicId=(\d+)/);return m?.[1]||null};
 const ttUsr=u=>(u||"").match(/@([^/?&\s]+)/)?.[1]||null;
-const igCd=u=>(u||"").match(/\/(p|reel|tv)\/([A-Za-z0-9_-]+)/)?.[2]||null;
+const igCd=u=>(u||"").match(/\/(p|reel|reels|tv)\/([A-Za-z0-9_-]+)/)?.[2]||null;
 const igAudioId=u=>(u||"").match(/reels\/audio\/(\d+)/)?.[1]||null;
 const spId=u=>(u||"").match(/track\/([A-Za-z0-9]+)/)?.[1]||null;
 const getPlatform=u=>{if(!u)return null;if(u.includes("tiktok.com"))return"tiktok";if(u.includes("instagram.com"))return"instagram";return null};
@@ -144,86 +144,41 @@ async function fetchTTMusic(mid){
     return{videoCount:count};
   }catch(e){console.error("fetchTTMusic:",e);return null}
 }
-async function fetchIGPost(code){
-  if(!code)return null;
+async function fetchIGPost(code,fullUrl){
+  if(!code&&!fullUrl)return null;
   try{
-    const r=await fetch(`/api/ig-post?code=${code}`);
+    // instagram-statistics-api takes the full post URL directly
+    const postUrl=fullUrl||`https://www.instagram.com/p/${code}/`;
+    const r=await fetch(`/api/ig-post?postUrl=${encodeURIComponent(postUrl)}`);
     if(!r.ok){console.error("IG http error:",r.status);return null}
     const d=await r.json();
     console.log("IG raw:",JSON.stringify(d).slice(0,1200));
-
-    // instagram120 uses Instagram internal API format
-    // Primary wrapper: d.data is the media object
-    const item=d?.data
-      ||d?.media
-      ||d?.result
-      ||d?.item
-      ||d?.shortcode_media
-      ||d?.graphql?.shortcode_media
+    // instagram-statistics-api response — try all known shapes
+    const item=d?.data||d?.result||d?.post||d?.media||d?.item
       ||(Array.isArray(d?.items)?d.items[0]:null)
+      ||(Array.isArray(d)?d[0]:null)
       ||d;
-
-    // instagram120 internal format uses play_count for video views
-    const views=Number(
-      item?.play_count          // instagram120 internal: video plays
-      ||item?.video_view_count  // older format
-      ||item?.view_count
-      ||item?.video_play_count
-      ||0
-    )||null;
-
-    const likes=Number(
-      item?.like_count          // instagram120 internal
-      ||item?.likes_count
-      ||item?.edge_liked_by?.count
-      ||item?.edge_media_preview_like?.count
-      ||0
-    )||null;
-
-    const comments=Number(
-      item?.comment_count       // instagram120 internal
-      ||item?.comments_count
-      ||item?.edge_media_to_comment?.count
-      ||0
-    )||null;
-
-    const saves=Number(item?.saved_count||0)||null;
-
-    // instagram120 internal format stores image in image_versions2.candidates array
-    const thumbnail=
-      item?.image_versions2?.candidates?.[0]?.url   // instagram120 internal ← main one
-      ||item?.carousel_media?.[0]?.image_versions2?.candidates?.[0]?.url
-      ||item?.display_url                            // graphql format
-      ||item?.thumbnail_url
-      ||item?.image_url
-      ||item?.thumbnail_src
+    const views=Number(item?.video_view_count||item?.videoViewCount||item?.view_count||item?.viewCount||item?.plays||item?.play_count||item?.reelVideoViewCount||0)||null;
+    const likes=Number(item?.like_count||item?.likeCount||item?.likes||item?.likes_count||item?.edge_liked_by?.count||item?.edge_media_preview_like?.count||0)||null;
+    const comments=Number(item?.comment_count||item?.commentCount||item?.comments||item?.comments_count||item?.edge_media_to_comment?.count||0)||null;
+    const saves=Number(item?.saved_count||item?.save_count||item?.saves||0)||null;
+    const thumbnail=item?.thumbnail_url||item?.thumbnailUrl||item?.display_url||item?.displayUrl
+      ||item?.image_url||item?.imageUrl||item?.image
       ||item?.thumbnail_resources?.[4]?.src
-      ||null;
-
-    // instagram120 internal format stores user in item.user (not item.owner)
-    const handle=(
-      item?.user?.username      // instagram120 internal ← main one
-      ||item?.owner?.username   // graphql format
-      ||item?.username
-      ||""
-    ).replace(/^@/,"")||null;
-
+      ||item?.carousel_media?.[0]?.display_url
+      ||item?.coverImage||null;
+    const handle=(item?.owner?.username||item?.user?.username||item?.ownerUsername||item?.username||item?.author||"").replace(/^@/,"")||null;
     console.log("IG parsed:",{views,likes,comments,handle,hasThumbnail:!!thumbnail});
-
-    // Return even partial data — let user fill in the rest manually
-    if(!likes&&!views&&!handle&&!thumbnail){
-      console.error("IG: zero usable fields. Full response:",JSON.stringify(d));
-      return null;
-    }
+    if(!likes&&!views&&!handle&&!thumbnail)return null;
     return{views,likes,comments,saves,thumbnail,handle};
-  }catch(e){console.error("fetchIGPost error:",e);return null}
+  }catch(e){console.error("fetchIGPost:",e);return null}
 }
 async function pullPost(url){
   const p=getPlatform(url);
   if(!p)return null;
   const base={platform:p,postUrl:url,handle:"",thumbnail:null,views:null,likes:null,comments:null,saves:null};
   if(p==="tiktok"){const d=await fetchTTPost(ttVid(url),url);return d?{...base,...d,platform:"tiktok"}:{...base,handle:ttUsr(url)||""}}
-  if(p==="instagram"){const d=await fetchIGPost(igCd(url));return d?{...base,...d,platform:"instagram"}:base}
+  if(p==="instagram"){const d=await fetchIGPost(igCd(url),url);return d?{...base,...d,platform:"instagram"}:base}
   return base;
 }
 // Smart merge: never overwrite existing data with null/empty, metrics only increase
