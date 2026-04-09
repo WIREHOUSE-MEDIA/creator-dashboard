@@ -3,32 +3,34 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>Creator Campaign Dashboard</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<title>Creator Campaign Dashboard — Wirehouse Media</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#090909;--s1:#131313;--s2:#1d1d1d;
+  --bg:#090909;--s1:#131313;--s2:#1d1d1d;--s3:#252525;
   --b1:rgba(255,255,255,0.06);--b2:rgba(255,255,255,0.13);--b3:rgba(255,255,255,0.22);
   --t1:#f0f0f0;--t2:rgba(240,240,240,0.52);--t3:rgba(240,240,240,0.26);
   --gold:#C9A84C;--ga:rgba(201,168,76,0.12);--gb:rgba(201,168,76,0.32);
   --tt:#69C9D0;--ta:rgba(105,201,208,0.11);
   --ig:#E1306C;--ia:rgba(225,48,108,0.11);
   --sp:#1DB954;--red:#e53e3e;
+  --draft:#888;--review:#f0c040;--approved:#4caf50;--live:#69C9D0;
 }
 html,body{height:100%;background:var(--bg);color:var(--t1);font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
 button{font-family:inherit;cursor:pointer;border:none;background:none;outline:none}
-input,select{font-family:inherit;outline:none}
+input,select,textarea{font-family:inherit;outline:none}
 a{color:inherit;text-decoration:none}
 ::-webkit-scrollbar{width:5px;height:5px}
 ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:3px}
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes up{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-.page{padding:1.75rem 2rem;max-width:1280px;margin:0 auto;animation:up .2s ease}
+.page{padding:1.75rem 2rem;max-width:1300px;margin:0 auto;animation:up .2s ease}
 .card{background:var(--s1);border:.5px solid var(--b1);border-radius:14px}
 .pad{padding:1.25rem}
 .inp{width:100%;padding:9px 12px;background:var(--s2);border:.5px solid var(--b2);border-radius:10px;color:var(--t1);font-size:13px;transition:border-color .15s}
 .inp:focus{border-color:var(--gold)}.inp::placeholder{color:var(--t3)}
+textarea.inp{resize:vertical;min-height:70px;line-height:1.6}
 select.inp option{background:var(--s2)}
 .bg{background:var(--gold);color:#000;font-weight:700;font-size:13px;padding:8px 16px;border-radius:10px;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;transition:opacity .15s}
 .bg:hover{opacity:.88}.bg:disabled{opacity:.45;cursor:not-allowed}
@@ -36,12 +38,27 @@ select.inp option{background:var(--s2)}
 .bo:hover{border-color:var(--b3)}
 .lbl{display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t2);margin-bottom:4px}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,0.9);display:flex;align-items:flex-start;justify-content:center;padding:60px 16px 40px;z-index:999;overflow-y:auto;backdrop-filter:blur(2px)}
-.modal{background:#181818;border:.5px solid var(--b2);border-radius:14px;width:100%;padding:1.5rem;box-shadow:0 40px 100px rgba(0,0,0,.8);animation:up .15s ease}
-.tag{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700}
-.sx{display:flex;gap:14px;overflow-x:auto;padding-bottom:10px}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,0.92);display:flex;align-items:flex-start;justify-content:center;padding:60px 16px 40px;z-index:999;overflow-y:auto;backdrop-filter:blur(4px)}
+.modal{background:#181818;border:.5px solid var(--b2);border-radius:16px;width:100%;padding:1.75rem;box-shadow:0 40px 100px rgba(0,0,0,.9);animation:up .15s ease}
+.tag{display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:20px;font-size:10px;font-weight:700}
+.sx{display:flex;gap:16px;overflow-x:auto;padding-bottom:10px;-webkit-overflow-scrolling:touch}
 .hr{height:.5px;background:var(--b1);margin:14px 0}
 .spin{animation:spin .7s linear infinite;display:inline-block;line-height:1}
+
+/* Status badges */
+.sb-draft{background:rgba(136,136,136,.15);color:#888;border:.5px solid rgba(136,136,136,.3)}
+.sb-review{background:rgba(240,192,64,.12);color:#f0c040;border:.5px solid rgba(240,192,64,.3)}
+.sb-approved{background:rgba(76,175,80,.12);color:#4caf50;border:.5px solid rgba(76,175,80,.3)}
+.sb-live{background:rgba(105,201,208,.12);color:#69C9D0;border:.5px solid rgba(105,201,208,.3)}
+
+/* Comment thread */
+.comment{background:var(--s2);border:.5px solid var(--b1);border-radius:10px;padding:10px 12px;margin-bottom:8px}
+.comment-author{font-size:10px;font-weight:700;color:var(--gold);margin-bottom:3px}
+.comment-text{font-size:12px;color:var(--t2);line-height:1.6}
+.comment-time{font-size:10px;color:var(--t3);margin-top:3px}
+
+/* Post card status badge — top right absolute */
+.post-status-badge{position:absolute;top:10px;right:10px;z-index:2;font-size:10px;font-weight:700;padding:3px 8px;border-radius:8px;letter-spacing:.04em}
 </style>
 </head>
 <body>
@@ -58,18 +75,18 @@ select.inp option{background:var(--s2)}
 const {useState,useEffect,useRef,useCallback}=React;
 const GOLD="#C9A84C",TT="#69C9D0",IG="#E1306C",SP="#1DB954";
 
-// ── UTILS ─────────────────────────────────────────────────
+// ── UTILS
 const uid=()=>Math.random().toString(36).slice(2,10);
 const fmt=n=>{n=Number(n)||0;if(n>=1e9)return(n/1e9).toFixed(1)+"B";if(n>=1e6)return(n/1e6).toFixed(1)+"M";if(n>=1e3)return(n/1e3).toFixed(1)+"K";return Math.round(n).toLocaleString()};
 const fmtUSD=n=>"$"+(Number(n)||0).toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:0});
+const fmtDate=iso=>iso?new Date(iso).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}):"";
 const ttVid=u=>(u||"").match(/video\/(\d{10,25})/)?.[1]||null;
-const ttMid=u=>{const m=(u||'').match(/music\/[^?/]*?(\d{10,25})/)||( u||'').match(/musicId=(\d+)/);return m?.[1]||null};
+const ttMid=u=>{const m=(u||"").match(/music\/[^?/]*?(\d{10,25})/)||(u||"").match(/musicId=(\d+)/);return m?.[1]||null};
 const ttUsr=u=>(u||"").match(/@([^/?&\s]+)/)?.[1]||null;
 const igCd=u=>(u||"").match(/\/(p|reel|reels|tv)\/([A-Za-z0-9_-]+)/)?.[2]||null;
 const igAudioId=u=>(u||"").match(/reels\/audio\/(\d+)/)?.[1]||null;
 const spId=u=>(u||"").match(/track\/([A-Za-z0-9]+)/)?.[1]||null;
 const getPlatform=u=>{if(!u)return null;if(u.includes("tiktok.com"))return"tiktok";if(u.includes("instagram.com"))return"instagram";return null};
-// Proxy Instagram/TikTok CDN images through server to avoid cross-origin blocks
 const proxyThumb=url=>{
   if(!url)return null;
   if(url.startsWith("/api/proxy-image"))return url;
@@ -78,7 +95,13 @@ const proxyThumb=url=>{
   return url;
 };
 
-// ── JSONBIN ───────────────────────────────────────────────
+// Status config
+const STATUS_ORDER=["draft","review","approved","live"];
+const STATUS_LABEL={draft:"Draft",review:"In Review",approved:"Approved",live:"🔴 Live"};
+const STATUS_CLASS={draft:"sb-draft",review:"sb-review",approved:"sb-approved",live:"sb-live"};
+const STATUS_COLOR={draft:"#888",review:"#f0c040",approved:"#4caf50",live:"#69C9D0"};
+
+// ── JSONBIN
 const JBIN="https://api.jsonbin.io/v3";
 async function jbRead(key,bin){
   if(!key||!bin)return null;
@@ -97,36 +120,25 @@ async function jbWrite(key,bin,data){
   }catch(e){console.error("jbWrite:",e);return false}
 }
 
-// ── API CALLS — proxied through server ────────────────────
+// ── API CALLS
 async function fetchTTPost(vid,originalUrl){
   if(!vid)return null;
   try{
     const params=new URLSearchParams({videoId:vid});
-    if(originalUrl)params.set('videoUrl',encodeURIComponent(originalUrl));
+    if(originalUrl)params.set("videoUrl",encodeURIComponent(originalUrl));
     const r=await fetch(`/api/tt-post?${params.toString()}`);
     if(!r.ok)return null;
     const d=await r.json();
-    console.log("TT raw:",JSON.stringify(d).slice(0,800));
-    // tiktok-scraper2 /video/info_v2 response shape
-    // tiktok-scraper2 wraps response in data{}
-    const item=d?.data
-      ||d?.itemInfo?.itemStruct
-      ||d?.videoData
-      ||d?.item
-      ||(Array.isArray(d?.items)?d.items[0]:null)
-      ||d;
-    // tiktok-scraper2 uses snake_case statistics
+    const item=d?.data||d?.itemInfo?.itemStruct||d?.item||(Array.isArray(d?.items)?d.items[0]:null)||d;
     const st=item?.statistics||item?.stats||{};
     const auth=item?.author||item?.authorMeta||{};
     const vid2=item?.video||{};
-    // snake_case first (tiktok-scraper2), camelCase fallback (tiktok-api23)
-    const views   =Number(st.play_count  ||st.playCount  ||0)||null;
-    const likes   =Number(st.digg_count  ||st.diggCount  ||0)||null;
+    const views=Number(st.play_count||st.playCount||0)||null;
+    const likes=Number(st.digg_count||st.diggCount||0)||null;
     const comments=Number(st.comment_count||st.commentCount||0)||null;
-    const saves   =Number(st.collect_count||st.collectCount||0)||null;
-    const thumbnail=vid2.cover||vid2.dynamic_cover||vid2.dynamicCover||vid2.origin_cover||null;
-    const handle  =(auth.unique_id||auth.uniqueId||auth.nickname||"").replace(/^@/,"")||null;
-    console.log("TT parsed:",{views,likes,comments,handle,hasThumbnail:!!thumbnail});
+    const saves=Number(st.collect_count||st.collectCount||0)||null;
+    const thumbnail=vid2.cover||vid2.dynamicCover||null;
+    const handle=(auth.unique_id||auth.uniqueId||auth.nickname||"").replace(/^@/,"")||null;
     if(!views&&!likes&&!handle&&!thumbnail)return null;
     return{views,likes,comments,saves,thumbnail,handle};
   }catch(e){console.error("fetchTTPost:",e);return null}
@@ -137,33 +149,29 @@ async function fetchTTMusic(mid){
     const r=await fetch(`/api/tt-music?musicId=${mid}`);
     if(!r.ok)return null;
     const d=await r.json();
-    console.log("TTMusic raw:",JSON.stringify(d).slice(0,500));
-    const st=d?.musicInfo?.stats||d?.data?.musicInfo?.stats||d?.stats||d?.data?.stats||{};
+    const st=d?.musicInfo?.stats||d?.data?.musicInfo?.stats||d?.stats||{};
     const music=d?.musicInfo?.music||d?.data?.musicInfo?.music||d?.music||d?.data||{};
     const count=st.videoCount||st.video_count||music.videoCount||music.video_count||d?.videoCount||null;
-    console.log("TTMusic videoCount:",count);
     return{videoCount:count};
-  }catch(e){console.error("fetchTTMusic:",e);return null}
+  }catch(e){return null}
 }
 async function fetchIGPost(code,originalUrl){
   if(!originalUrl&&!code)return null;
   try{
     const param=originalUrl||`https://www.instagram.com/p/${code}/`;
     const r=await fetch(`/api/ig-post?postUrl=${encodeURIComponent(param)}`);
-    if(!r.ok){console.error("IG http error:",r.status);return null}
+    if(!r.ok)return null;
     const d=await r.json();
-    if(!d||d.status===false){console.error("IG bad:",JSON.stringify(d).slice(0,200));return null}
-    const views   =Math.max(0,Number(d.video_view_count||d.view_count||d.views||0))||null;
-    const rawLikes=d.edge_media_preview_like?.count??d.edge_liked_by?.count??d.likes??0;
-    const likes   =rawLikes>0?Number(rawLikes):null;
-    const comments=Math.max(0,Number(d.edge_media_to_parent_comment?.count||d.edge_media_preview_comment?.count||d.comments||0))||null;
-    const rawThumb=d.thumbnail_src||d.display_url||d.thumbnail_url||null;
+    if(!d||d.status===false)return null;
+    const views=Number(d.video_view_count||d.view_count||0)||null;
+    const likes=Number(d.edge_media_preview_like?.count||d.edge_liked_by?.count||d.likes||0)||null;
+    const comments=Number(d.edge_media_to_parent_comment?.count||d.edge_media_preview_comment?.count||0)||null;
+    const rawThumb=d.thumbnail_src||d.display_url||null;
     const thumbnail=rawThumb?`/api/proxy-image?url=${encodeURIComponent(rawThumb)}`:null;
-    const handle  =(d.owner?.username||d.username||"").replace(/^@/,"")||null;
-    console.log("IG parsed:",{views,likes,comments,handle,hasThumbnail:!!thumbnail});
+    const handle=(d.owner?.username||d.username||"").replace(/^@/,"")||null;
     if(!likes&&!views&&!handle&&!thumbnail)return null;
     return{views,likes,comments,saves:null,thumbnail,handle};
-  }catch(e){console.error("fetchIGPost:",e);return null}
+  }catch(e){return null}
 }
 async function pullPost(url){
   const p=getPlatform(url);
@@ -173,65 +181,37 @@ async function pullPost(url){
   if(p==="instagram"){const d=await fetchIGPost(igCd(url),url);return d?{...base,...d,platform:"instagram"}:base}
   return base;
 }
-// Smart merge: never overwrite existing data with null/empty, metrics only increase
 function mergePostData(existing,fresh){
   if(!fresh)return existing;
-  const keep=(oldVal,newVal)=>{
-    const n=Number(newVal);
-    const o=Number(oldVal);
-    // For numbers: keep whichever is higher (metrics never go down due to API weirdness)
-    if(n>0&&o>0)return n>o?newVal:oldVal;
-    if(n>0)return newVal;
-    return oldVal;
-  };
-  return{
-    ...existing,
-    // Handle: keep existing unless fresh has one and existing doesn't
-    handle:   existing.handle||fresh.handle||existing.handle,
-    // Thumbnail: keep existing unless fresh has one
-    thumbnail:fresh.thumbnail||existing.thumbnail,
-    // Metrics: only update if fresh value is higher than stored
-    views:    keep(existing.views,   fresh.views),
-    likes:    keep(existing.likes,   fresh.likes),
-    comments: keep(existing.comments,fresh.comments),
-    saves:    keep(existing.saves,   fresh.saves),
-    // Budget never touched by refresh
-    budget:   existing.budget,
-  };
+  const keep=(o,n)=>{const nv=Number(n),ov=Number(o);if(nv>0&&ov>0)return nv>ov?n:o;if(nv>0)return n;return o};
+  return{...existing,handle:existing.handle||fresh.handle,thumbnail:fresh.thumbnail||existing.thumbnail,
+    views:keep(existing.views,fresh.views),likes:keep(existing.likes,fresh.likes),
+    comments:keep(existing.comments,fresh.comments),saves:keep(existing.saves,fresh.saves),budget:existing.budget};
 }
 
-// ── SPOTIFY ───────────────────────────────────────────────
+// ── SPOTIFY + CHARTEX
 async function spToken(id,sec){try{const r=await fetch("https://accounts.spotify.com/api/token",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:`grant_type=client_credentials&client_id=${id}&client_secret=${sec}`});return r.ok?(await r.json()).access_token:null}catch{return null}}
 async function spTrack(tid,tok){try{const r=await fetch(`https://api.spotify.com/v1/tracks/${tid}`,{headers:{Authorization:`Bearer ${tok}`}});if(!r.ok)return null;const t=await r.json();return{name:t.name,artist:t.artists?.map(a=>a.name).join(", "),art:t.album?.images?.[0]?.url,pop:t.popularity}}catch{return null}}
-
-// ── CHARTEX ───────────────────────────────────────────────
 const CX="https://api.chartex.com/external/v1";
 async function cxGet(path,cfg){if(!cfg?.cxId||!cfg?.cxToken)return null;try{const r=await fetch(CX+path,{headers:{"X-APP-ID":cfg.cxId,"X-APP-TOKEN":cfg.cxToken}});return r.ok?(await r.json()):null}catch{return null}}
 async function cxFindSong(cfg,sid,name){const p=sid?`/songs/?spotify_id=${sid}&limit=3`:`/songs/?search=${encodeURIComponent(name||"")}&limit=5`;const d=await cxGet(p,cfg);const a=d?.data?.items||d?.items||(Array.isArray(d)?d:[]);return a[0]||null}
 async function cxSongStats(cfg,id){const d=await cxGet(`/songs/${id}/`,cfg);return d?.data||d||null}
 
-// ── ICONS ─────────────────────────────────────────────────
+// ── ICONS
 const Tt=({s=16,c=TT})=><svg width={s} height={s} viewBox="0 0 24 24" fill={c}><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.69a8.26 8.26 0 004.84 1.56V6.8a4.85 4.85 0 01-1.07-.11z"/></svg>;
 const Ig=({s=16,c=IG})=><svg width={s} height={s} viewBox="0 0 24 24" fill={c}><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>;
 const Sv=({s=16,c=SP})=><svg width={s} height={s} viewBox="0 0 24 24" fill={c}><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>;
 const Rf=({s=13,c="currentColor",spin})=><svg className={spin?"spin":""} width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>;
 const Pn=({s=12})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>;
 
-const PC={
-  tiktok:{label:"TikTok",grad:"linear-gradient(150deg,#0d0d20,#3d2c8d,#ee1d52)",I:Tt},
-  instagram:{label:"Instagram",grad:"linear-gradient(150deg,#833ab4,#fd1d1d,#fcb045)",I:Ig},
-  youtube:{label:"YouTube",grad:"linear-gradient(150deg,#c4302b,#ff9900)",I:({s,c})=><span style={{fontSize:s,color:c}}>▶</span>},
-  twitter:{label:"X/Twitter",grad:"linear-gradient(150deg,#1da1f2,#14171a)",I:({s,c})=><span style={{fontSize:s,color:c,fontWeight:700}}>𝕏</span>},
-};
-
-// ── MODAL ─────────────────────────────────────────────────
+// ── MODAL
 function Modal({title,onClose,children,mw=500}){
   return(
     <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)onClose()}}>
       <div className="modal" style={{maxWidth:mw}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"1.25rem"}}>
-          <h2 style={{fontSize:16,fontWeight:700}}>{title}</h2>
-          <button className="bo" onClick={onClose} style={{padding:"3px 10px",fontSize:15}}>✕</button>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+          <h2 style={{fontSize:17,fontWeight:700}}>{title}</h2>
+          <button onClick={onClose} style={{color:"var(--t3)",fontSize:22,lineHeight:1,padding:"0 4px"}}>×</button>
         </div>
         {children}
       </div>
@@ -239,244 +219,287 @@ function Modal({title,onClose,children,mw=500}){
   );
 }
 
-// ── POST FORM ─────────────────────────────────────────────
+// ── POST FORM (add/edit post — now includes status + deliverable date)
 function PostForm({initial,onSubmit,onClose,cfg,label}){
   const[url,setUrl]=useState(initial?.postUrl||"");
-  const[st,setSt]=useState(initial?.postUrl?"done":"idle");
+  const[fetching,setFetching]=useState(false);
   const[f,setF]=useState({
-    platform:initial?.platform||"tiktok",
     handle:initial?.handle||"",
-    thumbnail:initial?.thumbnail||"",
     views:initial?.views||"",
     likes:initial?.likes||"",
     comments:initial?.comments||"",
     saves:initial?.saves||"",
     budget:initial?.budget||"",
+    platform:initial?.platform||"tiktok",
+    thumbnail:initial?.thumbnail||"",
+    status:initial?.status||"draft",
+    deliverableDate:initial?.deliverableDate||"",
+    notes:initial?.notes||"",
   });
-  const db=useRef(null);
-  const sf=k=>e=>setF(p=>({...p,[k]:e.target.value}));
+  const s=k=>e=>setF(p=>({...p,[k]:e.target.value}));
 
-  const doFetch=useCallback(async raw=>{
-    const u=raw.trim();
-    if(!getPlatform(u)){setSt("idle");return}
-    setSt("fetching");
-    const d=await pullPost(u);
-    if(d&&(d.views!=null||d.likes!=null||d.thumbnail||d.handle)){
-      setF(p=>({...p,
-        platform:d.platform||p.platform,
-        handle:d.handle||p.handle,
-        thumbnail:d.thumbnail||p.thumbnail,
-        views:d.views!=null?String(d.views):p.views,
-        likes:d.likes!=null?String(d.likes):p.likes,
-        comments:d.comments!=null?String(d.comments):p.comments,
-        saves:d.saves!=null?String(d.saves):p.saves,
-      }));
-      setSt("done");
-    }else setSt("error");
-  },[]);
-
-  const onU=e=>{
-    const v=e.target.value;setUrl(v);clearTimeout(db.current);
-    if(v.trim().length>20&&getPlatform(v)){setSt("fetching");db.current=setTimeout(()=>doFetch(v),800)}
-    else setSt("idle");
-  };
-
-  const vv=Number(f.views)||0,lk=Number(f.likes)||0,cm=Number(f.comments)||0;
-  const er=vv>0?((lk+cm)/vv*100).toFixed(2)+"%":"—";
-  const P=PC[f.platform]||PC.tiktok;
-  const stC={idle:"var(--t3)",fetching:GOLD,done:SP,error:IG};
-  const stM={
-    idle:"Paste TikTok or Instagram URL — metrics pull automatically",
-    fetching:"Fetching live metrics…",
-    done:"✓ Metrics loaded — edit any field if needed",
-    error:"Post may be private or rate limit hit. Fill in manually below.",
+  const fetchMetrics=async()=>{
+    if(!url.trim())return;
+    setFetching(true);
+    const d=await pullPost(url.trim());
+    if(d){setF(p=>({...p,...d,views:d.views||p.views,likes:d.likes||p.likes,comments:d.comments||p.comments,saves:d.saves||p.saves,handle:d.handle||p.handle,thumbnail:d.thumbnail||p.thumbnail,platform:d.platform||p.platform}));}
+    setFetching(false);
   };
 
   return(
-    <>
-      <div style={{marginBottom:14}}>
-        <label className="lbl">Post URL</label>
-        <div style={{position:"relative"}}>
-          <input className="inp" placeholder="https://www.tiktok.com/@creator/video/... or instagram.com/reel/..." value={url} onChange={onU} style={{paddingRight:34}}/>
-          {st==="fetching"&&<span className="spin" style={{position:"absolute",right:10,top:"50%",marginTop:-7}}><Rf s={14} c={GOLD}/></span>}
-          {st==="done"&&<span style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",color:SP,fontWeight:700,fontSize:14}}>✓</span>}
+    <div style={{display:"flex",flexDirection:"column",gap:14}}>
+      {/* URL + Fetch */}
+      <div>
+        <label className="lbl">Post URL (TikTok or Instagram)</label>
+        <div style={{display:"flex",gap:8}}>
+          <input className="inp" value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://www.tiktok.com/@handle/video/…" style={{flex:1}}/>
+          <button className="bg" onClick={fetchMetrics} disabled={fetching||!url.trim()} style={{flexShrink:0}}>
+            <Rf s={12} spin={fetching}/>{fetching?"Fetching…":"Pull Metrics"}
+          </button>
         </div>
-        <p style={{fontSize:11,marginTop:5,color:stC[st],fontWeight:st==="idle"?400:600}}>{stM[st]}</p>
+        {url&&<a href={url} target="_blank" style={{fontSize:11,color:TT,marginTop:4,display:"block"}}>Open post ↗</a>}
       </div>
 
-      <div style={{display:"grid",gridTemplateColumns:"175px 1fr",gap:18,alignItems:"start"}}>
+      {/* Status + Deliverable Date */}
+      <div className="g2">
         <div>
-          <label className="lbl">Preview</label>
-          <div style={{width:175,height:311,borderRadius:10,overflow:"hidden",position:"relative",background:f.thumbnail?`url(${proxyThumb(f.thumbnail)}) center/cover no-repeat`:P.grad,border:".5px solid var(--b2)"}}>
-            <div style={{position:"absolute",inset:0,background:"linear-gradient(to top,rgba(0,0,0,.9) 0%,transparent 55%)"}}/>
-            <div style={{position:"absolute",top:9,left:9,background:"rgba(0,0,0,.68)",borderRadius:6,padding:"3px 8px",display:"flex",alignItems:"center",gap:4}}>
-              <P.I s={11} c="#fff"/><span style={{color:"#fff",fontSize:10,fontWeight:700}}>{P.label}</span>
-            </div>
-            <div style={{position:"absolute",bottom:10,left:10,right:10}}>
-              <p style={{color:"#fff",fontSize:13,fontWeight:700}}>@{f.handle||"creator"}</p>
-            </div>
-          </div>
+          <label className="lbl">Post Status</label>
+          <select className="inp" value={f.status} onChange={s("status")}>
+            <option value="draft">Draft</option>
+            <option value="review">In Review</option>
+            <option value="approved">Approved</option>
+            <option value="live">🔴 Live</option>
+          </select>
         </div>
-
-        <div style={{display:"flex",flexDirection:"column",gap:10}}>
-          <div className="g2">
-            <div><label className="lbl">Platform</label>
-              <select className="inp" value={f.platform} onChange={sf("platform")}>
-                {Object.keys(PC).map(k=><option key={k} value={k}>{PC[k].label}</option>)}
-              </select>
-            </div>
-            <div><label className="lbl">Handle</label><input className="inp" placeholder="@username" value={f.handle} onChange={sf("handle")}/></div>
-          </div>
-          <div><label className="lbl">Thumbnail URL</label><input className="inp" placeholder="auto-pulled or paste direct image URL" value={f.thumbnail} onChange={sf("thumbnail")}/></div>
-          <div className="g2">
-            <div><label className="lbl">Views</label><input className="inp" type="number" min="0" placeholder="0" value={f.views} onChange={sf("views")}/></div>
-            <div><label className="lbl">Likes</label><input className="inp" type="number" min="0" placeholder="0" value={f.likes} onChange={sf("likes")}/></div>
-            <div><label className="lbl">Comments</label><input className="inp" type="number" min="0" placeholder="0" value={f.comments} onChange={sf("comments")}/></div>
-            <div><label className="lbl">Saves</label><input className="inp" type="number" min="0" placeholder="0" value={f.saves} onChange={sf("saves")}/></div>
-          </div>
-          <div>
-            <label className="lbl">Post Cost (USD) <span style={{fontWeight:400,color:"var(--t3)"}}>— what you paid this creator</span></label>
-            <div style={{position:"relative"}}>
-              <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:"var(--t2)",fontSize:13,pointerEvents:"none"}}>$</span>
-              <input className="inp" type="number" min="0" placeholder="0.00" value={f.budget} onChange={sf("budget")} style={{paddingLeft:22}}/>
-            </div>
-          </div>
-          <div style={{background:"var(--s2)",borderRadius:8,padding:"8px 12px",display:"flex",justifyContent:"space-between",alignItems:"center",border:".5px solid var(--b1)"}}>
-            <span style={{fontSize:11,color:"var(--t2)"}}>Engagement Rate (auto)</span>
-            <span style={{fontSize:16,fontWeight:700,color:GOLD}}>{er}</span>
-          </div>
-          <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
-            <button className="bo" onClick={onClose}>Cancel</button>
-            <button className="bg" onClick={()=>url.trim()&&onSubmit({...f,postUrl:url.trim()})}>{label||"Add Post"}</button>
-          </div>
+        <div>
+          <label className="lbl">Deliverable Date</label>
+          <input className="inp" type="date" value={f.deliverableDate} onChange={s("deliverableDate")}/>
         </div>
       </div>
-    </>
+
+      {/* Handle + Platform */}
+      <div className="g2">
+        <div>
+          <label className="lbl">Handle</label>
+          <input className="inp" value={f.handle} onChange={s("handle")} placeholder="@creator"/>
+        </div>
+        <div>
+          <label className="lbl">Platform</label>
+          <select className="inp" value={f.platform} onChange={s("platform")}>
+            <option value="tiktok">TikTok</option>
+            <option value="instagram">Instagram</option>
+            <option value="youtube">YouTube</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Metrics */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8}}>
+        {[["Views","views"],["Likes","likes"],["Comments","comments"],["Saves","saves"]].map(([l,k])=>(
+          <div key={k}>
+            <label className="lbl">{l}</label>
+            <input className="inp" value={f[k]} onChange={s(k)} placeholder="0" type="number"/>
+          </div>
+        ))}
+      </div>
+
+      {/* Budget */}
+      <div>
+        <label className="lbl">Creator Rate / Post Cost (USD)</label>
+        <input className="inp" value={f.budget} onChange={s("budget")} placeholder="0" type="number"/>
+      </div>
+
+      {/* Notes */}
+      <div>
+        <label className="lbl">Notes / Brief</label>
+        <textarea className="inp" value={f.notes} onChange={s("notes")} placeholder="Brief details, content direction, approval notes…"/>
+      </div>
+
+      {/* Thumbnail preview */}
+      {(f.thumbnail||initial?.thumbnail)&&(
+        <div>
+          <label className="lbl">Thumbnail</label>
+          <img src={proxyThumb(f.thumbnail||initial?.thumbnail)} alt="" style={{height:90,borderRadius:8,objectFit:"cover",border:".5px solid var(--b2)"}} onError={e=>e.target.style.display="none"}/>
+        </div>
+      )}
+
+      <button className="bg" onClick={()=>url.trim()&&onSubmit({...f,postUrl:url.trim()})} style={{alignSelf:"flex-start"}}>
+        {label||"Add Post"}
+      </button>
+    </div>
   );
 }
 
-// ── CAMPAIGN FORM ─────────────────────────────────────────
+// ── CAMPAIGN FORM
 function CampForm({init,onSubmit,onClose}){
   const[f,setF]=useState(init||{name:"",artist:"Alicia Keys",desc:"",ttUrl:"",igUrl:"",spUrl:"",cxUrl:""});
   const s=k=>e=>setF(p=>({...p,[k]:e.target.value}));
   return(
-    <div style={{display:"flex",flexDirection:"column",gap:12}}>
-      <div className="g2">
-        <div><label className="lbl">Campaign Name *</label><input className="inp" placeholder="e.g. Alicia Keys — Lifeline" value={f.name} onChange={s("name")}/></div>
-        <div><label className="lbl">Artist</label><input className="inp" value={f.artist} onChange={s("artist")}/></div>
-      </div>
-      <div><label className="lbl">Description</label><input className="inp" placeholder="Brief description" value={f.desc} onChange={s("desc")}/></div>
+    <div style={{display:"flex",flexDirection:"column",gap:14}}>
+      <div><label className="lbl">Campaign Name *</label><input className="inp" placeholder="e.g. Alicia Keys — Try Sleeping Wave" value={f.name} onChange={s("name")}/></div>
+      <div><label className="lbl">Artist</label><input className="inp" value={f.artist} onChange={s("artist")}/></div>
+      <div><label className="lbl">Description</label><textarea className="inp" value={f.desc} onChange={s("desc")} placeholder="Campaign goals, target creators, sound strategy…" style={{minHeight:60}}/></div>
       <div className="hr"/>
       <p style={{fontSize:10,fontWeight:700,color:GOLD,textTransform:"uppercase",letterSpacing:".06em"}}>Sound & Track Links</p>
-      <div>
-        <label className="lbl" style={{display:"flex",alignItems:"center",gap:4}}><Tt s={10} c={TT}/>TikTok Sound Page URL</label>
-        <input className="inp" placeholder="https://www.tiktok.com/music/Song-Name-7556815852168759313" value={f.ttUrl} onChange={s("ttUrl")}/>
-      </div>
-      <div>
-        <label className="lbl" style={{display:"flex",alignItems:"center",gap:4}}><Ig s={10} c={IG}/>Instagram Audio Page URL</label>
-        <input className="inp" placeholder="https://www.instagram.com/reels/audio/..." value={f.igUrl} onChange={s("igUrl")}/>
-      </div>
-      <div>
-        <label className="lbl" style={{display:"flex",alignItems:"center",gap:4}}><Sv s={10} c={SP}/>Spotify Track URL</label>
-        <input className="inp" placeholder="https://open.spotify.com/track/..." value={f.spUrl} onChange={s("spUrl")}/>
-      </div>
-      <div>
-        <label className="lbl">Chartex Song URL <span style={{fontWeight:400,color:"var(--t3)"}}>— embedded live below creator posts</span></label>
-        <input className="inp" placeholder="https://chartex.com/songs/..." value={f.cxUrl} onChange={s("cxUrl")}/>
-      </div>
-      <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
-        <button className="bo" onClick={onClose}>Cancel</button>
-        <button className="bg" onClick={()=>f.name.trim()&&onSubmit(f)}>{init?"Save Changes":"Create Campaign"}</button>
-      </div>
+      <div><label className="lbl" style={{display:"flex",alignItems:"center",gap:4}}><Tt s={10} c={TT}/>TikTok Sound Page URL</label><input className="inp" value={f.ttUrl} onChange={s("ttUrl")} placeholder="https://www.tiktok.com/music/…"/></div>
+      <div><label className="lbl" style={{display:"flex",alignItems:"center",gap:4}}><Ig s={10} c={IG}/>Instagram Audio Page URL</label><input className="inp" value={f.igUrl} onChange={s("igUrl")} placeholder="https://www.instagram.com/reels/audio/…"/></div>
+      <div><label className="lbl" style={{display:"flex",alignItems:"center",gap:4}}><Sv s={10} c={SP}/>Spotify Track URL</label><input className="inp" value={f.spUrl} onChange={s("spUrl")} placeholder="https://open.spotify.com/track/…"/></div>
+      <div><label className="lbl">Chartex Song URL</label><input className="inp" value={f.cxUrl} onChange={s("cxUrl")} placeholder="https://chartex.com/song/…"/></div>
+      <button className="bg" onClick={()=>f.name.trim()&&onSubmit(f)}>{init?"Save Changes":"Create Campaign"}</button>
     </div>
   );
 }
 
-// ── POST CARD ─────────────────────────────────────────────
-function PostCard({post,onRefresh,onEdit,onDelete,ro}){
-  const P=PC[post.platform]||PC.instagram;
-  const isRef=post._ref;
-  const vv=Number(post.views)||0,lk=Number(post.likes)||0,cm=Number(post.comments)||0;
-  const er=vv>0?((lk+cm)/vv*100).toFixed(2)+"%":"—";
-  const ts=post._at?new Date(post._at).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):null;
+// ── POST CARD (with status badge, deliverable date, comments)
+function PostCard({post,onRefresh,onEdit,onDelete,onStatusChange,onAddComment,ro}){
+  const P=post.platform==="instagram"?{I:Ig,c:IG,label:"Instagram"}:{I:Tt,c:TT,label:"TikTok"};
   const thumb=proxyThumb(post.thumbnail);
+  const[showComments,setShowComments]=useState(false);
+  const[newComment,setNewComment]=useState("");
+  const statusClass=STATUS_CLASS[post.status||"draft"];
+  const statusLabel=STATUS_LABEL[post.status||"draft"];
+
+  const submitComment=()=>{
+    if(!newComment.trim())return;
+    onAddComment(post.id,{id:uid(),text:newComment.trim(),author:"Wirehouse Media",ts:new Date().toISOString()});
+    setNewComment("");
+  };
+
+  const nextStatus=()=>{
+    const i=STATUS_ORDER.indexOf(post.status||"draft");
+    const next=STATUS_ORDER[Math.min(i+1,STATUS_ORDER.length-1)];
+    onStatusChange(post.id,next);
+  };
+  const prevStatus=()=>{
+    const i=STATUS_ORDER.indexOf(post.status||"draft");
+    const prev=STATUS_ORDER[Math.max(i-1,0)];
+    onStatusChange(post.id,prev);
+  };
+
   return(
-    <div style={{flexShrink:0,width:182,display:"flex",flexDirection:"column",animation:"up .2s ease"}}>
-      <a href={post.postUrl} target="_blank" rel="noreferrer">
-        <div style={{width:182,height:324,borderRadius:12,overflow:"hidden",position:"relative",background:thumb?`url(${thumb}) center/cover no-repeat`:P.grad,border:".5px solid var(--b2)",boxShadow:"0 8px 32px rgba(0,0,0,.45)"}}>
-          <div style={{position:"absolute",inset:0,background:"linear-gradient(to top,rgba(0,0,0,.92) 0%,transparent 50%)"}}/>
-          <div style={{position:"absolute",top:10,left:10,background:"rgba(0,0,0,.7)",backdropFilter:"blur(3px)",borderRadius:6,padding:"3px 8px",display:"flex",alignItems:"center",gap:4}}>
-            <P.I s={11} c="#fff"/><span style={{color:"#fff",fontSize:10,fontWeight:700}}>{P.label}</span>
+    <div style={{minWidth:230,maxWidth:270,background:"var(--s1)",border:".5px solid var(--b1)",borderRadius:14,overflow:"hidden",flexShrink:0,position:"relative",display:"flex",flexDirection:"column"}}>
+      {/* STATUS BADGE — top right */}
+      <div className={`post-status-badge tag ${statusClass}`}>{statusLabel}</div>
+
+      {/* Thumbnail */}
+      {thumb?(
+        <a href={post.postUrl} target="_blank" style={{display:"block",height:160,overflow:"hidden",background:"#000",flexShrink:0}}>
+          <img src={thumb} alt="" style={{width:"100%",height:"100%",objectFit:"cover",opacity:.92}} onError={e=>e.target.style.display="none"}/>
+        </a>
+      ):(
+        <a href={post.postUrl} target="_blank" style={{display:"flex",alignItems:"center",justifyContent:"center",height:160,background:"var(--s2)",flexShrink:0}}>
+          <P.I s={36} c={P.c}/>
+        </a>
+      )}
+
+      <div style={{padding:"12px 14px",flex:1,display:"flex",flexDirection:"column",gap:10}}>
+        {/* Platform + Handle */}
+        <div style={{display:"flex",alignItems:"center",gap:8,justifyContent:"space-between"}}>
+          <div style={{display:"flex",alignItems:"center",gap:6}}>
+            <P.I s={14} c={P.c}/>
+            <a href={`https://www.${post.platform}.com/@${post.handle||""}`} target="_blank" style={{fontSize:13,fontWeight:700,color:P.c}}>
+              {post.handle?"@"+post.handle:P.label}
+            </a>
           </div>
-          {isRef&&(
-            <div style={{position:"absolute",inset:0,background:"rgba(0,0,0,.65)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8}}>
-              <span className="spin"><Rf s={24} c="#fff"/></span>
-              <span style={{color:"#fff",fontSize:11,fontWeight:600}}>Fetching…</span>
+          {post._ref&&<span className="spin" style={{fontSize:11,color:"var(--t3)"}}><Rf s={10}/></span>}
+        </div>
+
+        {/* Deliverable date */}
+        {post.deliverableDate&&(
+          <div style={{fontSize:10,color:"var(--t3)",display:"flex",alignItems:"center",gap:4}}>
+            <span>📅</span>
+            <span>Due: {fmtDate(post.deliverableDate)}</span>
+          </div>
+        )}
+
+        {/* Metrics */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+          {[
+            ["Views",post.views,"👁"],
+            ["Likes",post.likes,"♥"],
+            ["Comments",post.comments,"💬"],
+            ...(post.saves!=null?[["Saves",post.saves,"🔖"]]:[]),
+            ...(post.budget>0?[["Rate",`$${Number(post.budget).toLocaleString()}`,""]]:[]),
+          ].map(([l,v,icon])=>(
+            <div key={l} style={{background:"var(--s2)",borderRadius:8,padding:"7px 10px"}}>
+              <div style={{fontSize:9,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",color:"var(--t3)",marginBottom:3}}>{icon} {l}</div>
+              <div style={{fontSize:16,fontWeight:800,color:v!=null&&v!=="—"?GOLD:"var(--t3)",letterSpacing:"-.3px"}}>{v!=null?fmt(Number(v)):"—"}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Notes */}
+        {post.notes&&<div style={{fontSize:11,color:"var(--t2)",lineHeight:1.5,background:"var(--s2)",borderRadius:8,padding:"7px 10px"}}>{post.notes}</div>}
+
+        {/* Status stepper */}
+        {!ro&&(
+          <div style={{display:"flex",alignItems:"center",gap:5}}>
+            <button onClick={prevStatus} className="bo" style={{padding:"3px 8px",fontSize:11,opacity:(post.status||"draft")==="draft"?0.3:1}}>←</button>
+            <div style={{flex:1,textAlign:"center",fontSize:10,fontWeight:700,color:STATUS_COLOR[post.status||"draft"]}}>
+              {statusLabel}
+            </div>
+            <button onClick={nextStatus} className="bo" style={{padding:"3px 8px",fontSize:11,opacity:(post.status||"draft")==="live"?0.3:1}}>→</button>
+          </div>
+        )}
+
+        {/* Actions */}
+        {!ro&&(
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            <button onClick={onRefresh} className="bo" style={{flex:1,justifyContent:"center",padding:"5px 8px",fontSize:11}}><Rf s={10}/>Refresh</button>
+            <button onClick={onEdit} className="bo" style={{flex:1,justifyContent:"center",padding:"5px 8px",fontSize:11}}><Pn s={10}/>Edit</button>
+            <button onClick={onDelete} className="bo" style={{flex:"0 0 auto",padding:"5px 8px",fontSize:11,color:"var(--t3)"}}>✕</button>
+          </div>
+        )}
+
+        {/* Comments toggle */}
+        <div style={{borderTop:".5px solid var(--b1)",paddingTop:8}}>
+          <button onClick={()=>setShowComments(p=>!p)} style={{fontSize:11,color:"var(--t2)",display:"flex",alignItems:"center",gap:5,width:"100%"}}>
+            <span>💬</span>
+            <span>{(post.threadComments||[]).length} comment{(post.threadComments||[]).length!==1?"s":""}</span>
+            <span style={{marginLeft:"auto",fontSize:10,opacity:.6}}>{showComments?"▲":"▼"}</span>
+          </button>
+
+          {showComments&&(
+            <div style={{marginTop:10}}>
+              {/* Existing comments */}
+              {(post.threadComments||[]).map(c=>(
+                <div key={c.id} className="comment">
+                  <div className="comment-author">{c.author}</div>
+                  <div className="comment-text">{c.text}</div>
+                  <div className="comment-time">{fmtDate(c.ts)}</div>
+                </div>
+              ))}
+              {/* Add comment */}
+              <div style={{display:"flex",gap:6,marginTop:6}}>
+                <input className="inp" value={newComment} onChange={e=>setNewComment(e.target.value)}
+                  placeholder="Add comment or feedback…" style={{flex:1,fontSize:12,padding:"6px 10px"}}
+                  onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();submitComment();}}}/>
+                <button onClick={submitComment} className="bg" style={{padding:"6px 12px",fontSize:11,flexShrink:0}}>Post</button>
+              </div>
             </div>
           )}
-          <div style={{position:"absolute",bottom:10,left:10,right:10}}>
-            <p style={{color:"#fff",fontSize:13,fontWeight:700}}>{post.handle?"@"+post.handle:"@creator"}</p>
-          </div>
         </div>
-      </a>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:4,marginTop:7}}>
-        {[["👁 Views",fmt(post.views),"var(--t1)"],["♥ Likes",fmt(post.likes),"var(--t1)"],["💬 Cmts",fmt(post.comments),"var(--t1)"],["⚡ Eng",er,GOLD]].map(([l,v,c])=>(
-          <div key={l} style={{background:"var(--s2)",borderRadius:7,padding:"6px 8px",border:".5px solid var(--b1)"}}>
-            <div style={{fontSize:9,fontWeight:700,textTransform:"uppercase",color:"var(--t3)",marginBottom:1}}>{l}</div>
-            <div style={{fontSize:13,fontWeight:700,color:c}}>{v||"—"}</div>
-          </div>
-        ))}
       </div>
-      {post.saves&&(
-        <div style={{background:"var(--s2)",borderRadius:7,padding:"5px 8px",border:".5px solid var(--b1)",marginTop:4,display:"flex",justifyContent:"space-between"}}>
-          <span style={{fontSize:9,fontWeight:700,textTransform:"uppercase",color:"var(--t3)"}}>💾 Saves</span>
-          <span style={{fontSize:12,fontWeight:700}}>{fmt(post.saves)}</span>
-        </div>
-      )}
-      {post.budget&&(
-        <div style={{background:"rgba(201,168,76,0.08)",borderRadius:7,padding:"5px 8px",border:".5px solid var(--gb)",marginTop:4,display:"flex",justifyContent:"space-between"}}>
-          <span style={{fontSize:9,fontWeight:700,textTransform:"uppercase",color:"var(--t3)"}}>💰 Cost</span>
-          <span style={{fontSize:12,fontWeight:700,color:GOLD}}>{fmtUSD(post.budget)}</span>
-        </div>
-      )}
-      {!ro&&(
-        <div style={{display:"flex",gap:4,marginTop:6}}>
-          <button className="bo" onClick={onRefresh} disabled={isRef} style={{flex:1,justifyContent:"center",padding:"5px",fontSize:10,opacity:isRef?0.5:1}}>
-            <Rf s={10} spin={isRef}/>{isRef?"…":"Refresh"}
-          </button>
-          <button className="bo" onClick={onEdit} style={{padding:"5px 9px",fontSize:10}}><Pn s={10}/></button>
-          <button className="bo" onClick={onDelete} style={{padding:"5px 9px",fontSize:11,color:"var(--t3)"}}>✕</button>
-        </div>
-      )}
-      {ts&&<p style={{fontSize:9,color:"var(--t3)",textAlign:"center",marginTop:3}}>Updated {ts}</p>}
     </div>
   );
 }
 
-// ── CHARTEX EMBED ─────────────────────────────────────────
+// ── CHARTEX EMBED
 function CxEmbed({url}){
-  if(!url)return null;
   return(
-    <div className="card" style={{marginBottom:14,overflow:"hidden"}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"1rem 1.25rem",borderBottom:".5px solid var(--b1)"}}>
-        <div>
-          <div style={{fontSize:13,fontWeight:700,display:"flex",alignItems:"center",gap:8}}><Tt s={14} c={TT}/>Chartex Analytics <span style={{fontSize:10,color:TT,fontWeight:500}}>· live embed</span></div>
-          <div style={{fontSize:11,color:"var(--t2)",marginTop:2}}>Requires your Chartex login in this browser</div>
-        </div>
-        <a href={url} target="_blank" rel="noreferrer" className="bo" style={{fontSize:11,flexShrink:0}}>Open Chartex ↗</a>
+    <div className="card pad" style={{marginBottom:14}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+        <div style={{fontSize:13,fontWeight:700,display:"flex",alignItems:"center",gap:8}}><Tt s={14} c={TT}/>Chartex Analytics <span style={{fontSize:10,color:TT,fontWeight:500}}>· live embed</span></div>
+        <a href={url} target="_blank" className="bo" style={{fontSize:11}}>Open in Chartex ↗</a>
       </div>
-      <div style={{position:"relative",background:"var(--s2)",minHeight:100}}>
-        <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8,color:"var(--t3)",fontSize:12,zIndex:0,padding:"2rem"}}>
-          <Tt s={28} c="rgba(105,201,208,0.2)"/>
-          <span style={{fontSize:10,textAlign:"center",maxWidth:280,lineHeight:1.55}}>If blank, browser blocks third-party frames. <a href={url} target="_blank" style={{color:TT}}>Open Chartex directly ↗</a></span>
-        </div>
-        <iframe src={url} style={{width:"100%",height:680,border:"none",display:"block",position:"relative",zIndex:1}} title="Chartex" referrerPolicy="no-referrer-when-downgrade"/>
+      <div style={{borderRadius:10,overflow:"hidden",border:".5px solid var(--b1)"}}>
+        <iframe src={url} style={{width:"100%",height:520,border:"none",display:"block",background:"#000"}} allow="fullscreen" loading="lazy"/>
       </div>
     </div>
   );
 }
 
-// ── DASHBOARD ─────────────────────────────────────────────
+// ── DASHBOARD
 function Dashboard({id,ro,cfg,db_,onDbChange}){
   const camps=db_?.campaigns||[];
   const camp=camps.find(c=>c.id===id)||null;
@@ -503,27 +526,17 @@ function Dashboard({id,ro,cfg,db_,onDbChange}){
       try{const tok=await spToken(cfg.spId,cfg.spSec);const tid=spId(c.spUrl);if(tok&&tid){const m=await spTrack(tid,tok);if(m)setSpMeta(m)}}catch{}
     }
     const ns={tt:null,ig:null};
-    // Extract Instagram audio ID from the audio page URL
     const igAid=igAudioId(c.igUrl);
     if(c.ttUrl&&cfg?.hasRapid){
       const mid=ttMid(c.ttUrl);
       if(mid){const m=await fetchTTMusic(mid);if(m?.videoCount!=null)ns.tt=m.videoCount;}
     }
-    // IG audio creates from instagram-looter2 /music?id=
     if(igAid&&cfg?.hasRapid){
       try{
         const r=await fetch(`/api/ig-music?audioId=${igAid}`);
-        if(r.ok){
-          const d=await r.json();
-          console.log("[IG-MUSIC]",JSON.stringify(d).slice(0,300));
-          const count=d?.reels_count||d?.clips_count||d?.media_count
-            ||d?.data?.reels_count||d?.data?.clips_count
-            ||d?.count||d?.total||null;
-          if(count!=null)ns.ig=count;
-        }
-      }catch(e){console.error("IG music:",e)}
+        if(r.ok){const d=await r.json();const count=d?.reels_count||d?.clips_count||d?.media_count||d?.count||null;if(count!=null)ns.ig=count;}
+      }catch{}
     }
-    // Chartex fallback for both TT and IG counts
     if(cfg?.cxId&&cfg?.cxToken){
       try{
         const sid=spId(c.spUrl);
@@ -531,10 +544,7 @@ function Dashboard({id,ro,cfg,db_,onDbChange}){
         if(!song&&c.artist)song=await cxFindSong(cfg,null,c.artist+" "+c.name);
         if(song){
           const st=await cxSongStats(cfg,song.id||song.song_id||song.chartex_id);
-          if(st){
-            if(ns.tt==null)ns.tt=st.tiktok_total_video_count||st.total_video_count||null;
-            if(ns.ig==null)ns.ig=st.instagram_reels_count||st.reels_count||null;
-          }
+          if(st){if(ns.tt==null)ns.tt=st.tiktok_total_video_count||null;if(ns.ig==null)ns.ig=st.instagram_reels_count||null;}
         }
       }catch{}
     }
@@ -542,7 +552,7 @@ function Dashboard({id,ro,cfg,db_,onDbChange}){
     setSyncing(false);
   };
 
-  const addPost=data=>{setPosts([...posts,{...data,id:uid(),addedAt:Date.now(),_at:Date.now()}]);setModal(null)};
+  const addPost=data=>{setPosts([...posts,{...data,id:uid(),addedAt:Date.now(),_at:Date.now(),threadComments:[],status:"draft"}]);setModal(null)};
   const saveEdit=data=>{setPosts(posts.map(p=>p.id===editTgt.id?{...p,...data,_at:Date.now()}:p));setModal(null);setEditTgt(null)};
   const removePost=pid=>{setPosts(posts.filter(p=>p.id!==pid));setModal(null);setEditTgt(null)};
 
@@ -563,6 +573,16 @@ function Dashboard({id,ro,cfg,db_,onDbChange}){
     setRefAll(false);
   },[id,posts,db_,cfg,onDbChange,refAll]);
 
+  // Update post status
+  const changeStatus=(pid,newStatus)=>{
+    setPosts(posts.map(p=>p.id===pid?{...p,status:newStatus,_at:Date.now()}:p));
+  };
+
+  // Add comment to a post
+  const addComment=(pid,comment)=>{
+    setPosts(posts.map(p=>p.id===pid?{...p,threadComments:[...(p.threadComments||[]),comment]}:p));
+  };
+
   const saveCamp=data=>{onDbChange({...db_,campaigns:camps.map(c=>c.id===id?{...c,...data}:c)});setModal(null)};
 
   // Totals
@@ -574,12 +594,13 @@ function Dashboard({id,ro,cfg,db_,onDbChange}){
     b:  a.b +(Number(p.budget)  ||0),
   }),{v:0,l:0,c_:0,s:0,b:0});
   const totalEr=T.v>0?((T.l+T.c_)/T.v*100).toFixed(2)+"%":"—";
-
-  // Budget & ROI
-  const emv=T.v*0.008; // ~$8 CPM music/entertainment industry benchmark
+  const emv=T.v*0.008;
   const roi=T.b>0?((emv-T.b)/T.b*100):0;
   const cpv=T.v>0?(T.b/T.v):0;
   const cpe=(T.l+T.c_+T.s)>0?(T.b/(T.l+T.c_+T.s)):0;
+
+  // Status summary
+  const statusCounts=posts.reduce((a,p)=>{a[p.status||"draft"]=(a[p.status||"draft"]||0)+1;return a},{});
 
   const shareUrl=`${location.origin}${location.pathname}#/view/${id}`;
   const copyShare=()=>{try{navigator.clipboard.writeText(shareUrl)}catch{};setCopied(true);setTimeout(()=>setCopied(false),2200)};
@@ -588,9 +609,8 @@ function Dashboard({id,ro,cfg,db_,onDbChange}){
     return(
       <div style={{textAlign:"center",padding:"4rem"}}>
         <p style={{color:"var(--t2)",marginBottom:8,fontSize:15,fontWeight:600}}>Campaign not found</p>
-        <p style={{color:"var(--t3)",fontSize:13,marginBottom:20}}>Try refreshing the page — it may still be loading from storage.</p>
         <div style={{display:"flex",gap:10,justifyContent:"center"}}>
-          <button className="bo" onClick={()=>location.reload()}>Refresh Page</button>
+          <button className="bo" onClick={()=>location.reload()}>Refresh</button>
           <button className="bg" onClick={()=>location.hash="/"}>← All Campaigns</button>
         </div>
       </div>
@@ -627,7 +647,24 @@ function Dashboard({id,ro,cfg,db_,onDbChange}){
         </div>
       </div>
 
-      {/* SOUND COUNTS */}
+      {/* STATUS PIPELINE */}
+      <div className="card pad" style={{marginBottom:14}}>
+        <div style={{fontSize:12,fontWeight:700,marginBottom:12,color:"var(--t2)",textTransform:"uppercase",letterSpacing:".07em"}}>Post Pipeline</div>
+        <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+          {STATUS_ORDER.map((st,i)=>(
+            <React.Fragment key={st}>
+              <div style={{textAlign:"center",minWidth:80}}>
+                <div style={{fontSize:22,fontWeight:800,color:STATUS_COLOR[st],letterSpacing:"-.5px"}}>{statusCounts[st]||0}</div>
+                <div className={`tag ${STATUS_CLASS[st]}`} style={{marginTop:4}}>{STATUS_LABEL[st]}</div>
+              </div>
+              {i<STATUS_ORDER.length-1&&<div style={{color:"var(--b3)",fontSize:20,fontWeight:300}}>→</div>}
+            </React.Fragment>
+          ))}
+          <div style={{marginLeft:"auto",fontSize:11,color:"var(--t3)"}}>Use ← → on each post card to advance status</div>
+        </div>
+      </div>
+
+      {/* SOUND CREATES */}
       {(camp.ttUrl||camp.igUrl)&&(
         <div className="card pad" style={{marginBottom:14}}>
           <div style={{fontSize:13,fontWeight:700,marginBottom:12}}>Sound Page — Videos Using This Sound</div>
@@ -650,7 +687,7 @@ function Dashboard({id,ro,cfg,db_,onDbChange}){
         </div>
       )}
 
-      {/* CREATOR PERFORMANCE */}
+      {/* PERFORMANCE TOTALS */}
       <div className="card pad" style={{marginBottom:14}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:10}}>
           <div>
@@ -659,49 +696,30 @@ function Dashboard({id,ro,cfg,db_,onDbChange}){
           </div>
           {!ro&&<button className="bg" onClick={refreshAll} disabled={refAll}><Rf s={13} spin={refAll}/>{refAll?"Refreshing…":"Refresh All"}</button>}
         </div>
-
-        {/* METRIC TOTALS */}
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(115px,1fr))",gap:8}}>
-          {[
-            ["Total Views",fmt(T.v),true],
-            ["Total Likes",fmt(T.l),false],
-            ["Total Comments",fmt(T.c_),false],
-            ["Total Saves",fmt(T.s),false],
-            ["Avg Eng Rate",totalEr,false],
-            ["Posts",String(posts.length),false],
-          ].map(([l,v,g])=>(
+          {[["Total Views",fmt(T.v),true],["Total Likes",fmt(T.l),false],["Total Comments",fmt(T.c_),false],["Total Saves",fmt(T.s),false],["Avg Eng Rate",totalEr,false],["Posts",String(posts.length),false]].map(([l,v,g])=>(
             <div key={l} className="card pad" style={{borderTop:g?`2px solid ${GOLD}`:undefined}}>
               <div style={{fontSize:9,fontWeight:700,textTransform:"uppercase",letterSpacing:".07em",color:"var(--t2)",marginBottom:5}}>{l}</div>
               <div style={{fontSize:20,fontWeight:800,color:g?GOLD:"var(--t1)",letterSpacing:"-.5px"}}>{v}</div>
             </div>
           ))}
         </div>
-
-        {/* BUDGET & ROI — only shows when at least one post has a cost */}
         {T.b>0&&(
           <div style={{marginTop:16,paddingTop:16,borderTop:".5px solid var(--b1)"}}>
             <div style={{fontSize:12,fontWeight:700,color:GOLD,marginBottom:10,textTransform:"uppercase",letterSpacing:".06em"}}>💰 Budget & ROI</div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(130px,1fr))",gap:8,marginBottom:10}}>
-              <div style={{background:"rgba(201,168,76,0.08)",borderRadius:10,padding:"10px 12px",border:".5px solid var(--gb)"}}>
-                <div style={{fontSize:9,fontWeight:700,textTransform:"uppercase",letterSpacing:".07em",color:"var(--t2)",marginBottom:4}}>Total Budget</div>
-                <div style={{fontSize:20,fontWeight:800,color:GOLD,letterSpacing:"-.3px"}}>{fmtUSD(T.b)}</div>
-              </div>
-              <div style={{background:"rgba(29,185,84,0.08)",borderRadius:10,padding:"10px 12px",border:".5px solid rgba(29,185,84,0.3)"}}>
-                <div style={{fontSize:9,fontWeight:700,textTransform:"uppercase",letterSpacing:".07em",color:"var(--t2)",marginBottom:4}}>Est. Earned Media</div>
-                <div style={{fontSize:20,fontWeight:800,color:SP,letterSpacing:"-.3px"}}>{fmtUSD(Math.round(emv))}</div>
-              </div>
-              <div style={{background:roi>=0?"rgba(29,185,84,0.08)":"rgba(229,57,57,0.08)",borderRadius:10,padding:"10px 12px",border:`.5px solid ${roi>=0?"rgba(29,185,84,0.3)":"rgba(229,57,57,0.3)"}`}}>
-                <div style={{fontSize:9,fontWeight:700,textTransform:"uppercase",letterSpacing:".07em",color:"var(--t2)",marginBottom:4}}>ROI</div>
-                <div style={{fontSize:20,fontWeight:800,color:roi>=0?SP:"var(--red)",letterSpacing:"-.3px"}}>{roi>=0?"+":""}{roi.toFixed(0)}%</div>
-              </div>
-              <div style={{background:"var(--s2)",borderRadius:10,padding:"10px 12px",border:".5px solid var(--b1)"}}>
-                <div style={{fontSize:9,fontWeight:700,textTransform:"uppercase",letterSpacing:".07em",color:"var(--t2)",marginBottom:4}}>Cost / View</div>
-                <div style={{fontSize:20,fontWeight:800,color:"var(--t1)",letterSpacing:"-.3px"}}>{cpv>0?"$"+cpv.toFixed(4):"—"}</div>
-              </div>
-              <div style={{background:"var(--s2)",borderRadius:10,padding:"10px 12px",border:".5px solid var(--b1)"}}>
-                <div style={{fontSize:9,fontWeight:700,textTransform:"uppercase",letterSpacing:".07em",color:"var(--t2)",marginBottom:4}}>Cost / Engagement</div>
-                <div style={{fontSize:20,fontWeight:800,color:"var(--t1)",letterSpacing:"-.3px"}}>{cpe>0?"$"+cpe.toFixed(2):"—"}</div>
-              </div>
+              {[
+                ["Total Budget",fmtUSD(T.b),"rgba(201,168,76,0.08)","rgba(201,168,76,0.3)",GOLD],
+                ["Est. Earned Media",fmtUSD(Math.round(emv)),"rgba(29,185,84,0.08)","rgba(29,185,84,0.3)",SP],
+                ["ROI",(roi>=0?"+":"")+roi.toFixed(0)+"%",roi>=0?"rgba(29,185,84,0.08)":"rgba(229,57,57,0.08)",roi>=0?"rgba(29,185,84,0.3)":"rgba(229,57,57,0.3)",roi>=0?SP:"var(--red)"],
+                ["Cost / View",cpv>0?"$"+cpv.toFixed(4):"—","var(--s2)","var(--b1)","var(--t1)"],
+                ["Cost / Engagement",cpe>0?"$"+cpe.toFixed(2):"—","var(--s2)","var(--b1)","var(--t1)"],
+              ].map(([l,v,bg,border,c])=>(
+                <div key={l} style={{background:bg,borderRadius:10,padding:"10px 12px",border:`.5px solid ${border}`}}>
+                  <div style={{fontSize:9,fontWeight:700,textTransform:"uppercase",letterSpacing:".07em",color:"var(--t2)",marginBottom:4}}>{l}</div>
+                  <div style={{fontSize:20,fontWeight:800,color:c,letterSpacing:"-.3px"}}>{v}</div>
+                </div>
+              ))}
             </div>
             <p style={{fontSize:10,color:"var(--t3)",lineHeight:1.55}}>EMV based on ~$8 CPM music/entertainment industry benchmark · ROI = (EMV − Budget) ÷ Budget</p>
           </div>
@@ -713,7 +731,7 @@ function Dashboard({id,ro,cfg,db_,onDbChange}){
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:10}}>
           <div>
             <div style={{fontSize:13,fontWeight:700}}>Creator Posts</div>
-            <div style={{fontSize:11,color:"var(--t2)",marginTop:2}}>Paste TikTok or Instagram URL · metrics auto-pull · permanent across all devices</div>
+            <div style={{fontSize:11,color:"var(--t2)",marginTop:2}}>Paste TikTok or Instagram URL · metrics auto-pull · status tracking · comments</div>
           </div>
           {!ro&&<button className="bg" onClick={()=>setModal("add")}>+ Add Post</button>}
         </div>
@@ -721,7 +739,7 @@ function Dashboard({id,ro,cfg,db_,onDbChange}){
           <div style={{textAlign:"center",padding:"3rem 1rem",border:".5px dashed var(--b2)",borderRadius:10}}>
             <div style={{fontSize:32,marginBottom:12}}>🎬</div>
             <p style={{fontSize:14,fontWeight:600,marginBottom:6}}>No creator posts yet</p>
-            <p style={{fontSize:12,color:"var(--t2)",marginBottom:16}}>Paste any TikTok or Instagram post URL — views, likes, comments and thumbnail pull automatically. Saved permanently across all devices.</p>
+            <p style={{fontSize:12,color:"var(--t2)",marginBottom:16,maxWidth:440,margin:"0 auto 16px",lineHeight:1.7}}>Paste any TikTok or Instagram URL — views, likes, comments pull automatically. Track draft → in review → approved → live status per post.</p>
             {!ro&&<button className="bg" onClick={()=>setModal("add")}>Add First Post</button>}
           </div>
         ):(
@@ -733,6 +751,8 @@ function Dashboard({id,ro,cfg,db_,onDbChange}){
                 onRefresh={()=>refreshOne(p)}
                 onEdit={()=>{setEditTgt(p);setModal("edit-post")}}
                 onDelete={()=>{setEditTgt(p);setModal("del")}}
+                onStatusChange={changeStatus}
+                onAddComment={addComment}
                 ro={ro}
               />
             ))}
@@ -792,7 +812,7 @@ function Dashboard({id,ro,cfg,db_,onDbChange}){
   );
 }
 
-// ── CAMPAIGN LIST ─────────────────────────────────────────
+// ── CAMPAIGN LIST
 function CampaignList({db_,onDbChange}){
   const camps=db_?.campaigns||[];
   const[modal,setModal]=useState(null);
@@ -803,55 +823,86 @@ function CampaignList({db_,onDbChange}){
   const update=f=>{onDbChange({...db_,campaigns:camps.map(c=>c.id===editTgt.id?{...c,...f}:c)});setModal(null);setEditTgt(null)};
   const remove=cid=>{const posts={...(db_?.posts||{})};delete posts[cid];onDbChange({...db_,campaigns:camps.filter(c=>c.id!==cid),posts});setDel(null)};
 
+  // Total post counts by status across all campaigns
+  const allPosts=Object.values(db_?.posts||{}).flat();
+  const totalLive=allPosts.filter(p=>p.status==="live").length;
+  const totalApproved=allPosts.filter(p=>p.status==="approved").length;
+  const totalReview=allPosts.filter(p=>p.status==="review").length;
+
   return(
     <div className="page">
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"2rem",flexWrap:"wrap",gap:12}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"1.5rem",flexWrap:"wrap",gap:12}}>
         <div>
           <h1 style={{fontSize:28,fontWeight:800,letterSpacing:"-.5px"}}><span style={{color:GOLD}}>✦</span> Creator Campaigns</h1>
-          <p style={{color:"var(--t2)",marginTop:4,fontSize:13}}>Live metrics · Cross-device sync · Chartex embedded</p>
+          <p style={{color:"var(--t2)",marginTop:4,fontSize:13}}>Live metrics · Status pipeline · Comments · Cross-device sync</p>
         </div>
         <button className="bg" onClick={()=>setModal("create")}>+ New Campaign</button>
       </div>
+
+      {/* Global status bar */}
+      {allPosts.length>0&&(
+        <div className="card pad" style={{marginBottom:20,display:"flex",gap:18,flexWrap:"wrap"}}>
+          {[["Live",totalLive,STATUS_COLOR.live],["Approved",totalApproved,STATUS_COLOR.approved],["In Review",totalReview,STATUS_COLOR.review],["Total Posts",allPosts.length,GOLD]].map(([l,v,c])=>(
+            <div key={l} style={{textAlign:"center"}}>
+              <div style={{fontSize:24,fontWeight:800,color:c}}>{v}</div>
+              <div style={{fontSize:10,color:"var(--t2)",fontWeight:700,textTransform:"uppercase",letterSpacing:".07em",marginTop:2}}>{l}</div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {camps.length===0?(
         <div className="card" style={{padding:"5rem 2rem",textAlign:"center"}}>
           <div style={{fontSize:44,color:GOLD,marginBottom:18}}>✦</div>
           <h2 style={{fontSize:20,fontWeight:700,marginBottom:8}}>No campaigns yet</h2>
-          <p style={{fontSize:13,color:"var(--t2)",maxWidth:460,margin:"0 auto 20px",lineHeight:1.7}}>Create a campaign with your TikTok sound, IG audio, Spotify and Chartex links. Then paste creator post URLs to pull live metrics automatically.</p>
+          <p style={{fontSize:13,color:"var(--t2)",maxWidth:460,margin:"0 auto 20px",lineHeight:1.7}}>Create a campaign with your TikTok sound, IG audio, Spotify and Chartex links. Track creator posts from draft to live.</p>
           <button className="bg" onClick={()=>setModal("create")}>Create Campaign</button>
         </div>
       ):(
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:14}}>
-          {camps.map(c=>(
-            <div key={c.id} className="card pad" style={{cursor:"pointer",transition:"border-color .15s"}}
-              onMouseEnter={e=>e.currentTarget.style.borderColor="rgba(201,168,76,0.35)"}
-              onMouseLeave={e=>e.currentTarget.style.borderColor="var(--b1)"}
-              onClick={()=>location.hash="/campaign/"+c.id}>
-              <div style={{display:"flex",gap:12,marginBottom:12}}>
-                <div style={{width:42,height:42,borderRadius:8,background:"var(--ga)",border:".5px solid var(--gb)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                  <span style={{color:GOLD,fontSize:22}}>✦</span>
+          {camps.map(c=>{
+            const campPosts=((db_?.posts||{})[c.id])||[];
+            const livePosts=campPosts.filter(p=>p.status==="live").length;
+            const totalView=campPosts.reduce((a,p)=>a+Number(p.views||0),0);
+            return(
+              <div key={c.id} className="card pad" style={{cursor:"pointer",transition:"border-color .15s"}}
+                onMouseEnter={e=>e.currentTarget.style.borderColor="rgba(201,168,76,0.35)"}
+                onMouseLeave={e=>e.currentTarget.style.borderColor="var(--b1)"}
+                onClick={()=>location.hash="/campaign/"+c.id}>
+                <div style={{display:"flex",gap:12,marginBottom:12}}>
+                  <div style={{width:42,height:42,borderRadius:8,background:"var(--ga)",border:".5px solid var(--gb)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                    <span style={{color:GOLD,fontSize:22}}>✦</span>
+                  </div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <p style={{fontWeight:700,fontSize:15,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</p>
+                    <p style={{fontSize:12,color:"var(--t2)",marginTop:2}}>{c.artist}</p>
+                  </div>
                 </div>
-                <div style={{flex:1,minWidth:0}}>
-                  <p style={{fontWeight:700,fontSize:15,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</p>
-                  <p style={{fontSize:12,color:"var(--t2)",marginTop:2}}>{c.artist}</p>
+                {c.desc&&<p style={{fontSize:12,color:"var(--t2)",lineHeight:1.5,marginBottom:10}}>{c.desc}</p>}
+                {/* Quick stats */}
+                {campPosts.length>0&&(
+                  <div style={{display:"flex",gap:10,marginBottom:10}}>
+                    <span style={{fontSize:11,color:GOLD,fontWeight:700}}>{campPosts.length} posts</span>
+                    {livePosts>0&&<span style={{fontSize:11,color:STATUS_COLOR.live}}>🔴 {livePosts} live</span>}
+                    {totalView>0&&<span style={{fontSize:11,color:"var(--t2)"}}>{fmt(totalView)} views</span>}
+                  </div>
+                )}
+                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                  {c.ttUrl&&<span className="tag" style={{background:"var(--ta)",color:TT}}><Tt s={9} c={TT}/>TikTok</span>}
+                  {c.igUrl&&<span className="tag" style={{background:"var(--ia)",color:IG}}><Ig s={9} c={IG}/>Instagram</span>}
+                  {c.spUrl&&<span className="tag" style={{background:"rgba(29,185,84,0.11)",color:SP}}><Sv s={9} c={SP}/>Spotify</span>}
+                  {c.cxUrl&&<span className="tag" style={{background:"var(--ta)",color:TT}}>Chartex Live</span>}
+                </div>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:14,paddingTop:12,borderTop:".5px solid var(--b1)"}}>
+                  <span style={{fontSize:11,color:"var(--t3)"}}>{new Date(c.createdAt).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</span>
+                  <div style={{display:"flex",gap:6}}>
+                    <button className="bo" style={{padding:"3px 9px",fontSize:11}} onClick={e=>{e.stopPropagation();setEditTgt(c);setModal("edit")}}><Pn s={10}/>Edit</button>
+                    <button className="bo" style={{padding:"3px 9px",fontSize:11,color:"var(--t3)"}} onClick={e=>{e.stopPropagation();setDel(c.id)}}>Delete</button>
+                  </div>
                 </div>
               </div>
-              {c.desc&&<p style={{fontSize:12,color:"var(--t2)",lineHeight:1.5,marginBottom:10}}>{c.desc}</p>}
-              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                {c.ttUrl&&<span className="tag" style={{background:"var(--ta)",color:TT}}><Tt s={9} c={TT}/>TikTok</span>}
-                {c.igUrl&&<span className="tag" style={{background:"var(--ia)",color:IG}}><Ig s={9} c={IG}/>Instagram</span>}
-                {c.spUrl&&<span className="tag" style={{background:"rgba(29,185,84,0.11)",color:SP}}><Sv s={9} c={SP}/>Spotify</span>}
-                {c.cxUrl&&<span className="tag" style={{background:"var(--ta)",color:TT}}>Chartex Live</span>}
-              </div>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:14,paddingTop:12,borderTop:".5px solid var(--b1)"}}>
-                <span style={{fontSize:11,color:"var(--t3)"}}>{new Date(c.createdAt).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</span>
-                <div style={{display:"flex",gap:6}}>
-                  <button className="bo" style={{padding:"3px 9px",fontSize:11}} onClick={e=>{e.stopPropagation();setEditTgt(c);setModal("edit")}}><Pn s={10}/>Edit</button>
-                  <button className="bo" style={{padding:"3px 9px",fontSize:11,color:"var(--t3)"}} onClick={e=>{e.stopPropagation();setDel(c.id)}}>Delete</button>
-                </div>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -870,7 +921,7 @@ function CampaignList({db_,onDbChange}){
   );
 }
 
-// ── APP ───────────────────────────────────────────────────
+// ── APP
 function App(){
   const[hash,setHash]=useState(location.hash||"");
   const[cfg,setCfg]=useState(null);
@@ -882,12 +933,9 @@ function App(){
 
   useEffect(()=>{
     (async()=>{
-      // Step 1: load credentials from server
       let serverCfg={};
       try{const r=await fetch("/config");if(r.ok)serverCfg=await r.json()}catch(e){console.warn("fetch /config failed:",e)}
       setCfg(serverCfg);
-
-      // Step 2: load data from JSONbin
       let data=null;
       if(serverCfg.jbKey&&serverCfg.jbBin){
         data=await jbRead(serverCfg.jbKey,serverCfg.jbBin);
@@ -899,7 +947,6 @@ function App(){
       setDb(data);
       setReady(true);
     })();
-
     const h=()=>setHash(location.hash||"");
     window.addEventListener("hashchange",h);
     return()=>window.removeEventListener("hashchange",h);
