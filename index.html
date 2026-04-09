@@ -14,8 +14,7 @@
   --gold:#C9A84C;--ga:rgba(201,168,76,0.12);--gb:rgba(201,168,76,0.32);
   --tt:#69C9D0;--ta:rgba(105,201,208,0.11);
   --ig:#E1306C;--ia:rgba(225,48,108,0.11);
-  --sp:#1DB954;--red:#e53e3e;
-  --draft:#888;--review:#f0c040;--approved:#4caf50;--live:#69C9D0;
+  --sp:#1DB954;--red:#e53e3e;--purple:#a855f7;
 }
 html,body{height:100%;background:var(--bg);color:var(--t1);font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
 button{font-family:inherit;cursor:pointer;border:none;background:none;outline:none}
@@ -38,34 +37,23 @@ select.inp option{background:var(--s2)}
 .bo:hover{border-color:var(--b3)}
 .lbl{display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t2);margin-bottom:4px}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.g4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px}
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.92);display:flex;align-items:flex-start;justify-content:center;padding:60px 16px 40px;z-index:999;overflow-y:auto;backdrop-filter:blur(4px)}
 .modal{background:#181818;border:.5px solid var(--b2);border-radius:16px;width:100%;padding:1.75rem;box-shadow:0 40px 100px rgba(0,0,0,.9);animation:up .15s ease}
 .tag{display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:20px;font-size:10px;font-weight:700}
-.sx{display:flex;gap:16px;overflow-x:auto;padding-bottom:10px;-webkit-overflow-scrolling:touch}
 .hr{height:.5px;background:var(--b1);margin:14px 0}
 .spin{animation:spin .7s linear infinite;display:inline-block;line-height:1}
-
-/* Status badges */
 .sb-draft{background:rgba(136,136,136,.15);color:#888;border:.5px solid rgba(136,136,136,.3)}
 .sb-review{background:rgba(240,192,64,.12);color:#f0c040;border:.5px solid rgba(240,192,64,.3)}
 .sb-approved{background:rgba(76,175,80,.12);color:#4caf50;border:.5px solid rgba(76,175,80,.3)}
-.sb-live{background:rgba(105,201,208,.12);color:#69C9D0;border:.5px solid rgba(105,201,208,.3)}
-
-/* Comment thread */
-.comment{background:var(--s2);border:.5px solid var(--b1);border-radius:10px;padding:10px 12px;margin-bottom:8px}
-.comment-author{font-size:10px;font-weight:700;color:var(--gold);margin-bottom:3px}
-.comment-text{font-size:12px;color:var(--t2);line-height:1.6}
-.comment-time{font-size:10px;color:var(--t3);margin-top:3px}
-
-/* Post card status badge — top right absolute */
-.post-status-badge{position:absolute;top:10px;right:10px;z-index:2;font-size:10px;font-weight:700;padding:3px 8px;border-radius:8px;letter-spacing:.04em}
+.sb-live{background:rgba(168,85,247,.15);color:#a855f7;border:.5px solid rgba(168,85,247,.4)}
 </style>
 </head>
 <body>
 <div id="root">
   <div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:14px;color:rgba(240,240,240,0.26);font-size:13px">
     <div class="spin" style="width:22px;height:22px;border:2px solid rgba(255,255,255,0.08);border-top-color:#C9A84C;border-radius:50%"></div>
-    Loading…
+    Loading...
   </div>
 </div>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -73,13 +61,12 @@ select.inp option{background:var(--s2)}
 <script src="https://unpkg.com/@babel/standalone@7.24.0/babel.min.js"></script>
 <script type="text/babel">
 const {useState,useEffect,useRef,useCallback}=React;
-const GOLD="#C9A84C",TT="#69C9D0",IG="#E1306C",SP="#1DB954";
+const GOLD="#C9A84C",TT="#69C9D0",IG="#E1306C",SP="#1DB954",PURPLE="#a855f7";
 
-// ── UTILS
 const uid=()=>Math.random().toString(36).slice(2,10);
 const fmt=n=>{n=Number(n)||0;if(n>=1e9)return(n/1e9).toFixed(1)+"B";if(n>=1e6)return(n/1e6).toFixed(1)+"M";if(n>=1e3)return(n/1e3).toFixed(1)+"K";return Math.round(n).toLocaleString()};
 const fmtUSD=n=>"$"+(Number(n)||0).toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:0});
-const fmtDate=iso=>iso?new Date(iso).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}):"";
+const fmtDate=ts=>ts?new Date(ts).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}):"";
 const ttVid=u=>(u||"").match(/video\/(\d{10,25})/)?.[1]||null;
 const ttMid=u=>{const m=(u||"").match(/music\/[^?/]*?(\d{10,25})/)||(u||"").match(/musicId=(\d+)/);return m?.[1]||null};
 const ttUsr=u=>(u||"").match(/@([^/?&\s]+)/)?.[1]||null;
@@ -89,44 +76,33 @@ const spId=u=>(u||"").match(/track\/([A-Za-z0-9]+)/)?.[1]||null;
 const getPlatform=u=>{if(!u)return null;if(u.includes("tiktok.com"))return"tiktok";if(u.includes("instagram.com"))return"instagram";return null};
 const proxyThumb=url=>{
   if(!url)return null;
-  if(url.startsWith("/api/proxy-image"))return url;
+  if(url.startsWith("/api/proxy-image")||url.startsWith("blob:"))return url;
   if(url.includes("fbcdn")||url.includes("cdninstagram")||url.includes("instagram.f"))
-    return`/api/proxy-image?url=${encodeURIComponent(url)}`;
+    return"/api/proxy-image?url="+encodeURIComponent(url);
   return url;
 };
 
-// Status config
 const STATUS_ORDER=["draft","review","approved","live"];
-const STATUS_LABEL={draft:"Draft",review:"In Review",approved:"Approved",live:"🔴 Live"};
+const STATUS_LABEL={draft:"Draft",review:"In Review",approved:"Approved",live:"🟣 Live"};
 const STATUS_CLASS={draft:"sb-draft",review:"sb-review",approved:"sb-approved",live:"sb-live"};
-const STATUS_COLOR={draft:"#888",review:"#f0c040",approved:"#4caf50",live:"#69C9D0"};
+const STATUS_COLOR={draft:"#888",review:"#f0c040",approved:"#4caf50",live:PURPLE};
 
-// ── JSONBIN
 const JBIN="https://api.jsonbin.io/v3";
 async function jbRead(key,bin){
   if(!key||!bin)return null;
-  try{
-    const r=await fetch(`${JBIN}/b/${bin}/latest`,{headers:{"X-Master-Key":key,"X-Bin-Meta":false}});
-    if(!r.ok)return null;
-    const d=await r.json();
-    return d?.record||d||null;
-  }catch(e){console.error("jbRead:",e);return null}
+  try{const r=await fetch(JBIN+"/b/"+bin+"/latest",{headers:{"X-Master-Key":key,"X-Bin-Meta":false}});if(!r.ok)return null;const d=await r.json();return d?.record||d||null}catch(e){console.error("jbRead:",e);return null}
 }
 async function jbWrite(key,bin,data){
   if(!key||!bin)return false;
-  try{
-    const r=await fetch(`${JBIN}/b/${bin}`,{method:"PUT",headers:{"X-Master-Key":key,"Content-Type":"application/json"},body:JSON.stringify(data)});
-    return r.ok;
-  }catch(e){console.error("jbWrite:",e);return false}
+  try{const r=await fetch(JBIN+"/b/"+bin,{method:"PUT",headers:{"X-Master-Key":key,"Content-Type":"application/json"},body:JSON.stringify(data)});return r.ok}catch(e){console.error("jbWrite:",e);return false}
 }
 
-// ── API CALLS
 async function fetchTTPost(vid,originalUrl){
   if(!vid)return null;
   try{
     const params=new URLSearchParams({videoId:vid});
     if(originalUrl)params.set("videoUrl",encodeURIComponent(originalUrl));
-    const r=await fetch(`/api/tt-post?${params.toString()}`);
+    const r=await fetch("/api/tt-post?"+params.toString());
     if(!r.ok)return null;
     const d=await r.json();
     const item=d?.data||d?.itemInfo?.itemStruct||d?.item||(Array.isArray(d?.items)?d.items[0]:null)||d;
@@ -146,28 +122,29 @@ async function fetchTTPost(vid,originalUrl){
 async function fetchTTMusic(mid){
   if(!mid)return null;
   try{
-    const r=await fetch(`/api/tt-music?musicId=${mid}`);
+    const r=await fetch("/api/tt-music?musicId="+mid);
     if(!r.ok)return null;
     const d=await r.json();
     const st=d?.musicInfo?.stats||d?.data?.musicInfo?.stats||d?.stats||{};
     const music=d?.musicInfo?.music||d?.data?.musicInfo?.music||d?.music||d?.data||{};
     const count=st.videoCount||st.video_count||music.videoCount||music.video_count||d?.videoCount||null;
     return{videoCount:count};
-  }catch(e){return null}
+  }catch{return null}
 }
 async function fetchIGPost(code,originalUrl){
   if(!originalUrl&&!code)return null;
   try{
-    const param=originalUrl||`https://www.instagram.com/p/${code}/`;
-    const r=await fetch(`/api/ig-post?postUrl=${encodeURIComponent(param)}`);
+    const param=originalUrl||"https://www.instagram.com/p/"+code+"/";
+    const r=await fetch("/api/ig-post?postUrl="+encodeURIComponent(param));
     if(!r.ok)return null;
     const d=await r.json();
     if(!d||d.status===false)return null;
     const views=Number(d.video_view_count||d.view_count||0)||null;
-    const likes=Number(d.edge_media_preview_like?.count||d.edge_liked_by?.count||d.likes||0)||null;
-    const comments=Number(d.edge_media_to_parent_comment?.count||d.edge_media_preview_comment?.count||0)||null;
+    const rawLikes=d.edge_media_preview_like?.count??d.edge_liked_by?.count??d.likes??0;
+    const likes=rawLikes>0?Number(rawLikes):null;
+    const comments=Math.max(0,Number(d.edge_media_to_parent_comment?.count||d.edge_media_preview_comment?.count||0))||null;
     const rawThumb=d.thumbnail_src||d.display_url||null;
-    const thumbnail=rawThumb?`/api/proxy-image?url=${encodeURIComponent(rawThumb)}`:null;
+    const thumbnail=rawThumb?"/api/proxy-image?url="+encodeURIComponent(rawThumb):null;
     const handle=(d.owner?.username||d.username||"").replace(/^@/,"")||null;
     if(!likes&&!views&&!handle&&!thumbnail)return null;
     return{views,likes,comments,saves:null,thumbnail,handle};
@@ -189,29 +166,26 @@ function mergePostData(existing,fresh){
     comments:keep(existing.comments,fresh.comments),saves:keep(existing.saves,fresh.saves),budget:existing.budget};
 }
 
-// ── SPOTIFY + CHARTEX
-async function spToken(id,sec){try{const r=await fetch("https://accounts.spotify.com/api/token",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:`grant_type=client_credentials&client_id=${id}&client_secret=${sec}`});return r.ok?(await r.json()).access_token:null}catch{return null}}
-async function spTrack(tid,tok){try{const r=await fetch(`https://api.spotify.com/v1/tracks/${tid}`,{headers:{Authorization:`Bearer ${tok}`}});if(!r.ok)return null;const t=await r.json();return{name:t.name,artist:t.artists?.map(a=>a.name).join(", "),art:t.album?.images?.[0]?.url,pop:t.popularity}}catch{return null}}
+async function spToken(id,sec){try{const r=await fetch("https://accounts.spotify.com/api/token",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"grant_type=client_credentials&client_id="+id+"&client_secret="+sec});return r.ok?(await r.json()).access_token:null}catch{return null}}
+async function spTrack(tid,tok){try{const r=await fetch("https://api.spotify.com/v1/tracks/"+tid,{headers:{Authorization:"Bearer "+tok}});if(!r.ok)return null;const t=await r.json();return{name:t.name,artist:t.artists?.map(a=>a.name).join(", "),art:t.album?.images?.[0]?.url,pop:t.popularity}}catch{return null}}
 const CX="https://api.chartex.com/external/v1";
 async function cxGet(path,cfg){if(!cfg?.cxId||!cfg?.cxToken)return null;try{const r=await fetch(CX+path,{headers:{"X-APP-ID":cfg.cxId,"X-APP-TOKEN":cfg.cxToken}});return r.ok?(await r.json()):null}catch{return null}}
-async function cxFindSong(cfg,sid,name){const p=sid?`/songs/?spotify_id=${sid}&limit=3`:`/songs/?search=${encodeURIComponent(name||"")}&limit=5`;const d=await cxGet(p,cfg);const a=d?.data?.items||d?.items||(Array.isArray(d)?d:[]);return a[0]||null}
-async function cxSongStats(cfg,id){const d=await cxGet(`/songs/${id}/`,cfg);return d?.data||d||null}
+async function cxFindSong(cfg,sid,name){const p=sid?"/songs/?spotify_id="+sid+"&limit=3":"/songs/?search="+encodeURIComponent(name||"")+"&limit=5";const d=await cxGet(p,cfg);const a=d?.data?.items||d?.items||(Array.isArray(d)?d:[]);return a[0]||null}
+async function cxSongStats(cfg,id){const d=await cxGet("/songs/"+id+"/",cfg);return d?.data||d||null}
 
-// ── ICONS
 const Tt=({s=16,c=TT})=><svg width={s} height={s} viewBox="0 0 24 24" fill={c}><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.69a8.26 8.26 0 004.84 1.56V6.8a4.85 4.85 0 01-1.07-.11z"/></svg>;
 const Ig=({s=16,c=IG})=><svg width={s} height={s} viewBox="0 0 24 24" fill={c}><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>;
 const Sv=({s=16,c=SP})=><svg width={s} height={s} viewBox="0 0 24 24" fill={c}><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>;
 const Rf=({s=13,c="currentColor",spin})=><svg className={spin?"spin":""} width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>;
 const Pn=({s=12})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>;
 
-// ── MODAL
 function Modal({title,onClose,children,mw=500}){
   return(
     <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)onClose()}}>
       <div className="modal" style={{maxWidth:mw}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
           <h2 style={{fontSize:17,fontWeight:700}}>{title}</h2>
-          <button onClick={onClose} style={{color:"var(--t3)",fontSize:22,lineHeight:1,padding:"0 4px"}}>×</button>
+          <button onClick={onClose} style={{color:"var(--t3)",fontSize:24,lineHeight:1,padding:"0 4px"}}>x</button>
         </div>
         {children}
       </div>
@@ -219,72 +193,56 @@ function Modal({title,onClose,children,mw=500}){
   );
 }
 
-// ── POST FORM (add/edit post — now includes status + deliverable date)
 function PostForm({initial,onSubmit,onClose,cfg,label}){
   const[url,setUrl]=useState(initial?.postUrl||"");
   const[fetching,setFetching]=useState(false);
+  const[fetchMsg,setFetchMsg]=useState("");
   const[f,setF]=useState({
-    handle:initial?.handle||"",
-    views:initial?.views||"",
-    likes:initial?.likes||"",
-    comments:initial?.comments||"",
-    saves:initial?.saves||"",
-    budget:initial?.budget||"",
-    platform:initial?.platform||"tiktok",
-    thumbnail:initial?.thumbnail||"",
-    status:initial?.status||"draft",
-    deliverableDate:initial?.deliverableDate||"",
-    notes:initial?.notes||"",
+    handle:initial?.handle||"",views:initial?.views||"",likes:initial?.likes||"",
+    comments:initial?.comments||"",saves:initial?.saves||"",budget:initial?.budget||"",
+    platform:initial?.platform||"tiktok",thumbnail:initial?.thumbnail||"",
+    status:initial?.status||"draft",deliverableDate:initial?.deliverableDate||"",notes:initial?.notes||"",
   });
   const s=k=>e=>setF(p=>({...p,[k]:e.target.value}));
-
   const fetchMetrics=async()=>{
     if(!url.trim())return;
-    setFetching(true);
+    setFetching(true);setFetchMsg("Fetching live metrics...");
     const d=await pullPost(url.trim());
-    if(d){setF(p=>({...p,...d,views:d.views||p.views,likes:d.likes||p.likes,comments:d.comments||p.comments,saves:d.saves||p.saves,handle:d.handle||p.handle,thumbnail:d.thumbnail||p.thumbnail,platform:d.platform||p.platform}));}
+    if(d&&(d.views||d.likes||d.handle||d.thumbnail)){
+      setF(p=>({...p,...d,views:String(d.views||p.views||""),likes:String(d.likes||p.likes||""),
+        comments:String(d.comments||p.comments||""),saves:String(d.saves||p.saves||""),
+        handle:d.handle||p.handle,thumbnail:d.thumbnail||p.thumbnail,platform:d.platform||p.platform}));
+      setFetchMsg("Metrics loaded");
+    }else setFetchMsg("Could not pull metrics - fill in manually");
     setFetching(false);
   };
-
   return(
     <div style={{display:"flex",flexDirection:"column",gap:14}}>
-      {/* URL + Fetch */}
       <div>
         <label className="lbl">Post URL (TikTok or Instagram)</label>
         <div style={{display:"flex",gap:8}}>
-          <input className="inp" value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://www.tiktok.com/@handle/video/…" style={{flex:1}}/>
+          <input className="inp" value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://www.tiktok.com/@handle/video/... or instagram.com/reel/..." style={{flex:1}}/>
           <button className="bg" onClick={fetchMetrics} disabled={fetching||!url.trim()} style={{flexShrink:0}}>
-            <Rf s={12} spin={fetching}/>{fetching?"Fetching…":"Pull Metrics"}
+            <Rf s={12} spin={fetching}/>{fetching?"Fetching...":"Pull Metrics"}
           </button>
         </div>
-        {url&&<a href={url} target="_blank" style={{fontSize:11,color:TT,marginTop:4,display:"block"}}>Open post ↗</a>}
+        {fetchMsg&&<p style={{fontSize:11,marginTop:5,color:fetchMsg.startsWith("Metrics")?"var(--sp)":"var(--t3)"}}>{fetchMsg}</p>}
+        {url&&<a href={url} target="_blank" style={{fontSize:11,color:TT,marginTop:3,display:"block"}}>Open post</a>}
       </div>
-
-      {/* Status + Deliverable Date */}
       <div className="g2">
-        <div>
-          <label className="lbl">Post Status</label>
+        <div><label className="lbl">Post Status</label>
           <select className="inp" value={f.status} onChange={s("status")}>
             <option value="draft">Draft</option>
             <option value="review">In Review</option>
             <option value="approved">Approved</option>
-            <option value="live">🔴 Live</option>
+            <option value="live">Live</option>
           </select>
         </div>
-        <div>
-          <label className="lbl">Deliverable Date</label>
-          <input className="inp" type="date" value={f.deliverableDate} onChange={s("deliverableDate")}/>
-        </div>
+        <div><label className="lbl">Deliverable Date</label><input className="inp" type="date" value={f.deliverableDate} onChange={s("deliverableDate")}/></div>
       </div>
-
-      {/* Handle + Platform */}
       <div className="g2">
-        <div>
-          <label className="lbl">Handle</label>
-          <input className="inp" value={f.handle} onChange={s("handle")} placeholder="@creator"/>
-        </div>
-        <div>
-          <label className="lbl">Platform</label>
+        <div><label className="lbl">Handle</label><input className="inp" value={f.handle} onChange={s("handle")} placeholder="@creator"/></div>
+        <div><label className="lbl">Platform</label>
           <select className="inp" value={f.platform} onChange={s("platform")}>
             <option value="tiktok">TikTok</option>
             <option value="instagram">Instagram</option>
@@ -292,188 +250,283 @@ function PostForm({initial,onSubmit,onClose,cfg,label}){
           </select>
         </div>
       </div>
-
-      {/* Metrics */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8}}>
+      <div className="g4">
         {[["Views","views"],["Likes","likes"],["Comments","comments"],["Saves","saves"]].map(([l,k])=>(
-          <div key={k}>
-            <label className="lbl">{l}</label>
-            <input className="inp" value={f[k]} onChange={s(k)} placeholder="0" type="number"/>
-          </div>
+          <div key={k}><label className="lbl">{l}</label><input className="inp" value={f[k]} onChange={s(k)} placeholder="0" type="number"/></div>
         ))}
       </div>
-
-      {/* Budget */}
-      <div>
-        <label className="lbl">Creator Rate / Post Cost (USD)</label>
-        <input className="inp" value={f.budget} onChange={s("budget")} placeholder="0" type="number"/>
+      <div><label className="lbl">Creator Rate / Post Cost (USD)</label><input className="inp" value={f.budget} onChange={s("budget")} placeholder="0" type="number"/></div>
+      <div><label className="lbl">Notes / Brief</label><textarea className="inp" value={f.notes} onChange={s("notes")} placeholder="Brief details, content direction, approval notes..."/></div>
+      {f.thumbnail&&<div><label className="lbl">Thumbnail Preview</label><img src={proxyThumb(f.thumbnail)} alt="" style={{height:90,borderRadius:8,objectFit:"cover",border:".5px solid var(--b2)"}} onError={e=>e.target.style.display="none"}/></div>}
+      <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
+        <button className="bo" onClick={onClose}>Cancel</button>
+        <button className="bg" onClick={()=>url.trim()&&onSubmit({...f,postUrl:url.trim()})}>{label||"Add Post"}</button>
       </div>
-
-      {/* Notes */}
-      <div>
-        <label className="lbl">Notes / Brief</label>
-        <textarea className="inp" value={f.notes} onChange={s("notes")} placeholder="Brief details, content direction, approval notes…"/>
-      </div>
-
-      {/* Thumbnail preview */}
-      {(f.thumbnail||initial?.thumbnail)&&(
-        <div>
-          <label className="lbl">Thumbnail</label>
-          <img src={proxyThumb(f.thumbnail||initial?.thumbnail)} alt="" style={{height:90,borderRadius:8,objectFit:"cover",border:".5px solid var(--b2)"}} onError={e=>e.target.style.display="none"}/>
-        </div>
-      )}
-
-      <button className="bg" onClick={()=>url.trim()&&onSubmit({...f,postUrl:url.trim()})} style={{alignSelf:"flex-start"}}>
-        {label||"Add Post"}
-      </button>
     </div>
   );
 }
 
-// ── CAMPAIGN FORM
+function DraftForm({onSubmit,onClose}){
+  const[f,setF]=useState({handle:"",platform:"tiktok",status:"draft",deliverableDate:"",notes:"",budget:""});
+  const[preview,setPreview]=useState(null);
+  const s=k=>e=>setF(p=>({...p,[k]:e.target.value}));
+  const fileRef=useRef(null);
+  const onFile=e=>{
+    const file=e.target.files?.[0];
+    if(!file)return;
+    const url=URL.createObjectURL(file);
+    setPreview({url,isVideo:file.type.startsWith("video"),name:file.name});
+  };
+  return(
+    <div style={{display:"flex",flexDirection:"column",gap:14}}>
+      <p style={{fontSize:12,color:"var(--t2)",lineHeight:1.5}}>Upload a video or image as the post preview for draft tracking before the post goes live.</p>
+      <div onClick={()=>fileRef.current?.click()} style={{border:".5px dashed var(--b2)",borderRadius:12,padding:"2rem",textAlign:"center",cursor:"pointer",background:"var(--s2)",transition:"border-color .15s"}}
+        onMouseEnter={e=>e.currentTarget.style.borderColor=GOLD}
+        onMouseLeave={e=>e.currentTarget.style.borderColor="var(--b2)"}>
+        <input ref={fileRef} type="file" accept="video/*,image/*" style={{display:"none"}} onChange={onFile}/>
+        {preview?(
+          preview.isVideo
+            ?<video src={preview.url} style={{maxHeight:200,borderRadius:8,maxWidth:"100%"}} controls/>
+            :<img src={preview.url} style={{maxHeight:200,borderRadius:8,maxWidth:"100%",objectFit:"contain"}} alt="Preview"/>
+        ):(
+          <>
+            <div style={{fontSize:36,marginBottom:10}}>📁</div>
+            <p style={{fontSize:13,color:"var(--t2)",fontWeight:600}}>Click to upload video or image</p>
+            <p style={{fontSize:11,color:"var(--t3)",marginTop:4}}>MP4, MOV, JPG, PNG</p>
+          </>
+        )}
+      </div>
+      {preview&&<p style={{fontSize:11,color:"var(--sp)"}}>✓ {preview.name}</p>}
+      <div className="g2">
+        <div><label className="lbl">Creator Handle</label><input className="inp" value={f.handle} onChange={s("handle")} placeholder="@creator"/></div>
+        <div><label className="lbl">Platform</label>
+          <select className="inp" value={f.platform} onChange={s("platform")}>
+            <option value="tiktok">TikTok</option>
+            <option value="instagram">Instagram</option>
+            <option value="youtube">YouTube</option>
+          </select>
+        </div>
+      </div>
+      <div className="g2">
+        <div><label className="lbl">Status</label>
+          <select className="inp" value={f.status} onChange={s("status")}>
+            <option value="draft">Draft</option>
+            <option value="review">In Review</option>
+            <option value="approved">Approved</option>
+          </select>
+        </div>
+        <div><label className="lbl">Deliverable Date</label><input className="inp" type="date" value={f.deliverableDate} onChange={s("deliverableDate")}/></div>
+      </div>
+      <div><label className="lbl">Creator Rate (USD)</label><input className="inp" type="number" value={f.budget} onChange={s("budget")} placeholder="0"/></div>
+      <div><label className="lbl">Brief / Notes</label><textarea className="inp" value={f.notes} onChange={s("notes")} placeholder="Content direction, talking points, approval notes..."/></div>
+      <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
+        <button className="bo" onClick={onClose}>Cancel</button>
+        <button className="bg" onClick={()=>onSubmit({...f,postUrl:"",thumbnail:preview?.url||"",id:uid(),addedAt:Date.now(),_at:Date.now(),threadComments:[],views:null,likes:null,comments:null,saves:null})}>
+          Add Draft
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function BulkAddForm({cfg,onSubmit,onClose}){
+  const[raw,setRaw]=useState("");
+  const[rows,setRows]=useState([]);
+  const[fetching,setFetching]=useState(false);
+  const[done,setDone]=useState(false);
+  const parseUrls=()=>[...new Set((raw||"").split(/[\n,]/).map(u=>u.trim()).filter(u=>u.length>10&&(u.includes("tiktok.com")||u.includes("instagram.com"))))].slice(0,25);
+  const fetchAll=async()=>{
+    const urls=parseUrls();
+    if(!urls.length)return;
+    setFetching(true);
+    setRows(urls.map(url=>({url,status:"fetching",data:null})));
+    const results=await Promise.all(urls.map(async url=>{
+      try{const d=await pullPost(url);return{url,status:(d&&(d.views||d.handle||d.thumbnail))?"done":"error",data:d||{platform:getPlatform(url)||"tiktok",postUrl:url}}}
+      catch{return{url,status:"error",data:{platform:getPlatform(url)||"tiktok",postUrl:url}}}
+    }));
+    setRows(results);setFetching(false);setDone(true);
+  };
+  const updateRow=(i,field,val)=>setRows(prev=>prev.map((r,idx)=>idx===i?{...r,data:{...r.data,[field]:val}}:r));
+  const submit=()=>{
+    const posts=rows.map(r=>({...r.data,postUrl:r.url,id:uid(),addedAt:Date.now(),_at:Date.now(),threadComments:[],status:"draft",platform:r.data?.platform||getPlatform(r.url)||"tiktok"}));
+    onSubmit(posts);
+  };
+  return(
+    <div style={{display:"flex",flexDirection:"column",gap:14}}>
+      {!done?(
+        <>
+          <div>
+            <label className="lbl">Paste up to 25 TikTok or Instagram links — one per line</label>
+            <textarea className="inp" value={raw} onChange={e=>setRaw(e.target.value)}
+              placeholder={"https://www.tiktok.com/@creator1/video/123\nhttps://www.instagram.com/reel/ABC\nhttps://www.tiktok.com/@creator2/video/456"}
+              style={{minHeight:180,fontFamily:"monospace",fontSize:12,lineHeight:1.8}}/>
+            <p style={{fontSize:11,color:"var(--t3)",marginTop:4}}>{parseUrls().length} valid links detected (max 25)</p>
+          </div>
+          <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
+            <button className="bo" onClick={onClose}>Cancel</button>
+            <button className="bg" onClick={fetchAll} disabled={fetching||!parseUrls().length}>
+              <Rf s={12} spin={fetching}/>{fetching?"Fetching "+parseUrls().length+" posts...":"Fetch Metrics for "+parseUrls().length+" Posts"}
+            </button>
+          </div>
+        </>
+      ):(
+        <>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
+            <p style={{fontSize:13,fontWeight:700}}>{rows.length} posts — review and edit before adding</p>
+            <button onClick={()=>{setDone(false);setRows([])}} className="bo" style={{fontSize:11}}>Edit URLs</button>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:8,maxHeight:420,overflowY:"auto",paddingRight:4}}>
+            {rows.map((r,i)=>(
+              <div key={r.url} style={{background:"var(--s2)",borderRadius:10,padding:"12px 14px",border:".5px solid "+(r.status==="error"?"var(--red)":"var(--b2)")}}>
+                <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
+                  {r.data?.thumbnail&&<img src={proxyThumb(r.data.thumbnail)} alt="" style={{width:44,height:52,borderRadius:6,objectFit:"cover",flexShrink:0}} onError={e=>e.target.style.display="none"}/>}
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:8}}>
+                      <span style={{fontSize:11,fontWeight:700,color:r.status==="done"?"var(--sp)":"var(--t3)"}}>{r.status==="done"?"Done":r.status==="fetching"?"...":"!"}</span>
+                      <span style={{fontSize:11,color:"var(--t2)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1}}>{r.data?.handle?"@"+r.data.handle+" · ":""}{r.url.split("/").pop()}</span>
+                    </div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr 1fr",gap:6}}>
+                      {[["Handle","handle"],["Views","views"],["Likes","likes"],["Comments","comments"],["Rate $","budget"]].map(([l,k])=>(
+                        <div key={k}>
+                          <label className="lbl" style={{marginBottom:2,fontSize:9}}>{l}</label>
+                          <input className="inp" defaultValue={r.data?.[k]||""} style={{fontSize:11,padding:"4px 6px"}} onChange={e=>updateRow(i,k,e.target.value)}/>
+                        </div>
+                      ))}
+                    </div>
+                    {r.status==="error"&&<p style={{fontSize:10,color:"var(--t3)",marginTop:4}}>Could not fetch — will add with no metrics</p>}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={{display:"flex",gap:10,justifyContent:"space-between",alignItems:"center",paddingTop:8,borderTop:".5px solid var(--b1)"}}>
+            <p style={{fontSize:11,color:"var(--t2)"}}>{rows.filter(r=>r.status==="done").length}/{rows.length} fetched successfully</p>
+            <div style={{display:"flex",gap:8}}>
+              <button className="bo" onClick={onClose}>Cancel</button>
+              <button className="bg" onClick={submit}>Add All {rows.length} Posts</button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function CampForm({init,onSubmit,onClose}){
   const[f,setF]=useState(init||{name:"",artist:"Alicia Keys",desc:"",ttUrl:"",igUrl:"",spUrl:"",cxUrl:""});
   const s=k=>e=>setF(p=>({...p,[k]:e.target.value}));
   return(
     <div style={{display:"flex",flexDirection:"column",gap:14}}>
-      <div><label className="lbl">Campaign Name *</label><input className="inp" placeholder="e.g. Alicia Keys — Try Sleeping Wave" value={f.name} onChange={s("name")}/></div>
+      <div><label className="lbl">Campaign Name *</label><input className="inp" placeholder="e.g. Alicia Keys — Lifeline" value={f.name} onChange={s("name")}/></div>
       <div><label className="lbl">Artist</label><input className="inp" value={f.artist} onChange={s("artist")}/></div>
-      <div><label className="lbl">Description</label><textarea className="inp" value={f.desc} onChange={s("desc")} placeholder="Campaign goals, target creators, sound strategy…" style={{minHeight:60}}/></div>
+      <div><label className="lbl">Description</label><textarea className="inp" value={f.desc} onChange={s("desc")} placeholder="Campaign goals, target creators, sound strategy..." style={{minHeight:60}}/></div>
       <div className="hr"/>
-      <p style={{fontSize:10,fontWeight:700,color:GOLD,textTransform:"uppercase",letterSpacing:".06em"}}>Sound & Track Links</p>
-      <div><label className="lbl" style={{display:"flex",alignItems:"center",gap:4}}><Tt s={10} c={TT}/>TikTok Sound Page URL</label><input className="inp" value={f.ttUrl} onChange={s("ttUrl")} placeholder="https://www.tiktok.com/music/…"/></div>
-      <div><label className="lbl" style={{display:"flex",alignItems:"center",gap:4}}><Ig s={10} c={IG}/>Instagram Audio Page URL</label><input className="inp" value={f.igUrl} onChange={s("igUrl")} placeholder="https://www.instagram.com/reels/audio/…"/></div>
-      <div><label className="lbl" style={{display:"flex",alignItems:"center",gap:4}}><Sv s={10} c={SP}/>Spotify Track URL</label><input className="inp" value={f.spUrl} onChange={s("spUrl")} placeholder="https://open.spotify.com/track/…"/></div>
-      <div><label className="lbl">Chartex Song URL</label><input className="inp" value={f.cxUrl} onChange={s("cxUrl")} placeholder="https://chartex.com/song/…"/></div>
-      <button className="bg" onClick={()=>f.name.trim()&&onSubmit(f)}>{init?"Save Changes":"Create Campaign"}</button>
+      <p style={{fontSize:10,fontWeight:700,color:GOLD,textTransform:"uppercase",letterSpacing:".06em"}}>Sound and Track Links</p>
+      <div>
+        <label className="lbl" style={{display:"flex",alignItems:"center",gap:4}}><Tt s={10} c={TT}/>TikTok Sound Page URL(s)</label>
+        <textarea className="inp" value={f.ttUrl} onChange={s("ttUrl")} placeholder={"https://www.tiktok.com/music/Song-Name-123...\nhttps://www.tiktok.com/music/Remix-456...\n\nOne per line for multiple sounds"} style={{minHeight:70}}/>
+        <p style={{fontSize:10,color:"var(--t3)",marginTop:3}}>Paste one URL per line for multiple sounds — creates count will be combined</p>
+      </div>
+      <div><label className="lbl" style={{display:"flex",alignItems:"center",gap:4}}><Ig s={10} c={IG}/>Instagram Audio Page URL</label><input className="inp" value={f.igUrl} onChange={s("igUrl")} placeholder="https://www.instagram.com/reels/audio/841270117005292/"/></div>
+      <div><label className="lbl" style={{display:"flex",alignItems:"center",gap:4}}><Sv s={10} c={SP}/>Spotify Track URL</label><input className="inp" value={f.spUrl} onChange={s("spUrl")} placeholder="https://open.spotify.com/track/..."/></div>
+      <div><label className="lbl">Chartex Song URL</label><input className="inp" value={f.cxUrl} onChange={s("cxUrl")} placeholder="https://chartex.com/songs/..."/></div>
+      <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
+        <button className="bo" onClick={onClose}>Cancel</button>
+        <button className="bg" onClick={()=>f.name.trim()&&onSubmit(f)}>{init?"Save Changes":"Create Campaign"}</button>
+      </div>
     </div>
   );
 }
 
-// ── POST CARD (with status badge, deliverable date, comments)
 function PostCard({post,onRefresh,onEdit,onDelete,onStatusChange,onAddComment,ro}){
-  const P=post.platform==="instagram"?{I:Ig,c:IG,label:"Instagram"}:{I:Tt,c:TT,label:"TikTok"};
+  const isIG=post.platform==="instagram";
+  const P=isIG?{I:Ig,c:IG,label:"Instagram"}:{I:Tt,c:TT,label:"TikTok"};
   const thumb=proxyThumb(post.thumbnail);
   const[showComments,setShowComments]=useState(false);
   const[newComment,setNewComment]=useState("");
-  const statusClass=STATUS_CLASS[post.status||"draft"];
-  const statusLabel=STATUS_LABEL[post.status||"draft"];
-
-  const submitComment=()=>{
-    if(!newComment.trim())return;
-    onAddComment(post.id,{id:uid(),text:newComment.trim(),author:"Wirehouse Media",ts:new Date().toISOString()});
-    setNewComment("");
-  };
-
-  const nextStatus=()=>{
-    const i=STATUS_ORDER.indexOf(post.status||"draft");
-    const next=STATUS_ORDER[Math.min(i+1,STATUS_ORDER.length-1)];
-    onStatusChange(post.id,next);
-  };
-  const prevStatus=()=>{
-    const i=STATUS_ORDER.indexOf(post.status||"draft");
-    const prev=STATUS_ORDER[Math.max(i-1,0)];
-    onStatusChange(post.id,prev);
-  };
-
+  const status=post.status||"draft";
+  const submitComment=()=>{if(!newComment.trim())return;onAddComment(post.id,{id:uid(),text:newComment.trim(),author:"Wirehouse Media",ts:new Date().toISOString()});setNewComment("")};
+  const nextStatus=()=>{const i=STATUS_ORDER.indexOf(status);if(i<STATUS_ORDER.length-1)onStatusChange(post.id,STATUS_ORDER[i+1])};
+  const prevStatus=()=>{const i=STATUS_ORDER.indexOf(status);if(i>0)onStatusChange(post.id,STATUS_ORDER[i-1])};
+  const vv=Number(post.views)||0,lk=Number(post.likes)||0,cm=Number(post.comments)||0;
+  const er=vv>0?((lk+cm)/vv*100).toFixed(2)+"%":"—";
   return(
-    <div style={{minWidth:230,maxWidth:270,background:"var(--s1)",border:".5px solid var(--b1)",borderRadius:14,overflow:"hidden",flexShrink:0,position:"relative",display:"flex",flexDirection:"column"}}>
-      {/* STATUS BADGE — top right */}
-      <div className={`post-status-badge tag ${statusClass}`}>{statusLabel}</div>
-
-      {/* Thumbnail */}
+    <div style={{background:"var(--s1)",border:".5px solid var(--b1)",borderRadius:14,overflow:"hidden",display:"flex",flexDirection:"column",animation:"up .2s ease"}}>
       {thumb?(
-        <a href={post.postUrl} target="_blank" style={{display:"block",height:160,overflow:"hidden",background:"#000",flexShrink:0}}>
-          <img src={thumb} alt="" style={{width:"100%",height:"100%",objectFit:"cover",opacity:.92}} onError={e=>e.target.style.display="none"}/>
-        </a>
-      ):(
-        <a href={post.postUrl} target="_blank" style={{display:"flex",alignItems:"center",justifyContent:"center",height:160,background:"var(--s2)",flexShrink:0}}>
-          <P.I s={36} c={P.c}/>
-        </a>
-      )}
-
-      <div style={{padding:"12px 14px",flex:1,display:"flex",flexDirection:"column",gap:10}}>
-        {/* Platform + Handle */}
-        <div style={{display:"flex",alignItems:"center",gap:8,justifyContent:"space-between"}}>
-          <div style={{display:"flex",alignItems:"center",gap:6}}>
-            <P.I s={14} c={P.c}/>
-            <a href={`https://www.${post.platform}.com/@${post.handle||""}`} target="_blank" style={{fontSize:13,fontWeight:700,color:P.c}}>
-              {post.handle?"@"+post.handle:P.label}
+        post.postUrl
+          ?<a href={post.postUrl} target="_blank" style={{display:"block",height:180,overflow:"hidden",background:"#000",flexShrink:0,position:"relative"}}>
+              <img src={thumb} alt="" style={{width:"100%",height:"100%",objectFit:"cover",opacity:.92}} onError={e=>e.target.style.display="none"}/>
+              <div style={{position:"absolute",top:10,left:10,background:"rgba(0,0,0,.7)",backdropFilter:"blur(3px)",borderRadius:6,padding:"3px 8px",display:"flex",alignItems:"center",gap:4}}><P.I s={11} c="#fff"/><span style={{color:"#fff",fontSize:10,fontWeight:700}}>{P.label}</span></div>
+              <div className={"tag "+STATUS_CLASS[status]} style={{position:"absolute",top:10,right:10}}>{STATUS_LABEL[status]}</div>
             </a>
-          </div>
-          {post._ref&&<span className="spin" style={{fontSize:11,color:"var(--t3)"}}><Rf s={10}/></span>}
+          :<div style={{height:180,overflow:"hidden",background:"#111",flexShrink:0,position:"relative",display:"flex",alignItems:"center",justifyContent:"center"}}>
+              <img src={thumb} alt="" style={{width:"100%",height:"100%",objectFit:"cover",opacity:.85}} onError={e=>e.target.style.display="none"}/>
+              <div style={{position:"absolute",top:10,left:10,background:"rgba(0,0,0,.7)",borderRadius:6,padding:"3px 8px",display:"flex",alignItems:"center",gap:4}}><P.I s={11} c="#fff"/><span style={{color:"#fff",fontSize:10,fontWeight:700}}>DRAFT</span></div>
+              <div className={"tag "+STATUS_CLASS[status]} style={{position:"absolute",top:10,right:10}}>{STATUS_LABEL[status]}</div>
+            </div>
+      ):(
+        <div style={{height:120,background:"var(--s2)",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",position:"relative"}}>
+          <P.I s={36} c={P.c}/>
+          <div className={"tag "+STATUS_CLASS[status]} style={{position:"absolute",top:10,right:10}}>{STATUS_LABEL[status]}</div>
         </div>
-
-        {/* Deliverable date */}
-        {post.deliverableDate&&(
-          <div style={{fontSize:10,color:"var(--t3)",display:"flex",alignItems:"center",gap:4}}>
-            <span>📅</span>
-            <span>Due: {fmtDate(post.deliverableDate)}</span>
+      )}
+      <div style={{padding:"12px 14px",flex:1,display:"flex",flexDirection:"column",gap:10}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <div style={{display:"flex",alignItems:"center",gap:6}}>
+            <P.I s={13} c={P.c}/>
+            {post.handle
+              ?<a href={"https://www."+post.platform+".com/@"+post.handle} target="_blank" style={{fontSize:13,fontWeight:700,color:P.c}}>@{post.handle}</a>
+              :<span style={{fontSize:13,color:"var(--t3)"}}>No handle</span>}
           </div>
-        )}
-
-        {/* Metrics */}
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
-          {[
-            ["Views",post.views,"👁"],
-            ["Likes",post.likes,"♥"],
-            ["Comments",post.comments,"💬"],
-            ...(post.saves!=null?[["Saves",post.saves,"🔖"]]:[]),
-            ...(post.budget>0?[["Rate",`$${Number(post.budget).toLocaleString()}`,""]]:[]),
-          ].map(([l,v,icon])=>(
-            <div key={l} style={{background:"var(--s2)",borderRadius:8,padding:"7px 10px"}}>
-              <div style={{fontSize:9,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",color:"var(--t3)",marginBottom:3}}>{icon} {l}</div>
-              <div style={{fontSize:16,fontWeight:800,color:v!=null&&v!=="—"?GOLD:"var(--t3)",letterSpacing:"-.3px"}}>{v!=null?fmt(Number(v)):"—"}</div>
+          {post.deliverableDate&&<span style={{fontSize:10,color:"var(--t3)"}}>📅 {fmtDate(new Date(post.deliverableDate))}</span>}
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:5}}>
+          {[["👁",fmt(post.views),"Views"],["♥",fmt(post.likes),"Likes"],["💬",fmt(post.comments),"Cmts"],["⚡",er,"Eng"]].map(([icon,val,lbl])=>(
+            <div key={lbl} style={{background:"var(--s2)",borderRadius:7,padding:"6px 6px",textAlign:"center"}}>
+              <div style={{fontSize:9,color:"var(--t3)",marginBottom:2}}>{icon}</div>
+              <div style={{fontSize:12,fontWeight:700,color:lbl==="Eng"?GOLD:"var(--t1)"}}>{val||"—"}</div>
             </div>
           ))}
         </div>
-
-        {/* Notes */}
-        {post.notes&&<div style={{fontSize:11,color:"var(--t2)",lineHeight:1.5,background:"var(--s2)",borderRadius:8,padding:"7px 10px"}}>{post.notes}</div>}
-
-        {/* Status stepper */}
+        {post.budget&&Number(post.budget)>0&&(
+          <div style={{display:"flex",justifyContent:"space-between",background:"rgba(201,168,76,0.08)",borderRadius:7,padding:"5px 10px",border:".5px solid var(--gb)"}}>
+            <span style={{fontSize:10,fontWeight:700,color:"var(--t3)",textTransform:"uppercase"}}>💰 Rate</span>
+            <span style={{fontSize:12,fontWeight:700,color:GOLD}}>{fmtUSD(post.budget)}</span>
+          </div>
+        )}
+        {post.notes&&<div style={{fontSize:11,color:"var(--t2)",lineHeight:1.5,background:"var(--s2)",borderRadius:7,padding:"7px 10px"}}>{post.notes}</div>}
         {!ro&&(
           <div style={{display:"flex",alignItems:"center",gap:5}}>
-            <button onClick={prevStatus} className="bo" style={{padding:"3px 8px",fontSize:11,opacity:(post.status||"draft")==="draft"?0.3:1}}>←</button>
-            <div style={{flex:1,textAlign:"center",fontSize:10,fontWeight:700,color:STATUS_COLOR[post.status||"draft"]}}>
-              {statusLabel}
-            </div>
-            <button onClick={nextStatus} className="bo" style={{padding:"3px 8px",fontSize:11,opacity:(post.status||"draft")==="live"?0.3:1}}>→</button>
+            <button onClick={prevStatus} className="bo" style={{padding:"3px 8px",fontSize:11,opacity:status==="draft"?0.3:1}} disabled={status==="draft"}>←</button>
+            <div style={{flex:1,textAlign:"center",fontSize:10,fontWeight:700,color:STATUS_COLOR[status]}}>{STATUS_LABEL[status]}</div>
+            <button onClick={nextStatus} className="bo" style={{padding:"3px 8px",fontSize:11,opacity:status==="live"?0.3:1}} disabled={status==="live"}>→</button>
           </div>
         )}
-
-        {/* Actions */}
         {!ro&&(
-          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-            <button onClick={onRefresh} className="bo" style={{flex:1,justifyContent:"center",padding:"5px 8px",fontSize:11}}><Rf s={10}/>Refresh</button>
-            <button onClick={onEdit} className="bo" style={{flex:1,justifyContent:"center",padding:"5px 8px",fontSize:11}}><Pn s={10}/>Edit</button>
-            <button onClick={onDelete} className="bo" style={{flex:"0 0 auto",padding:"5px 8px",fontSize:11,color:"var(--t3)"}}>✕</button>
+          <div style={{display:"flex",gap:5}}>
+            {post.postUrl&&<button onClick={onRefresh} className="bo" style={{flex:1,justifyContent:"center",padding:"5px",fontSize:11}}><Rf s={10}/>Refresh</button>}
+            <button onClick={onEdit} className="bo" style={{flex:1,justifyContent:"center",padding:"5px",fontSize:11}}><Pn s={10}/>Edit</button>
+            <button onClick={onDelete} className="bo" style={{padding:"5px 8px",fontSize:11,color:"var(--t3)"}}>x</button>
           </div>
         )}
-
-        {/* Comments toggle */}
         <div style={{borderTop:".5px solid var(--b1)",paddingTop:8}}>
           <button onClick={()=>setShowComments(p=>!p)} style={{fontSize:11,color:"var(--t2)",display:"flex",alignItems:"center",gap:5,width:"100%"}}>
-            <span>💬</span>
-            <span>{(post.threadComments||[]).length} comment{(post.threadComments||[]).length!==1?"s":""}</span>
-            <span style={{marginLeft:"auto",fontSize:10,opacity:.6}}>{showComments?"▲":"▼"}</span>
+            <span>💬</span><span>{(post.threadComments||[]).length} comment{(post.threadComments||[]).length!==1?"s":""}</span>
+            <span style={{marginLeft:"auto",fontSize:10,opacity:.5}}>{showComments?"▲":"▼"}</span>
           </button>
-
           {showComments&&(
             <div style={{marginTop:10}}>
-              {/* Existing comments */}
-              {(post.threadComments||[]).map(c=>(
-                <div key={c.id} className="comment">
-                  <div className="comment-author">{c.author}</div>
-                  <div className="comment-text">{c.text}</div>
-                  <div className="comment-time">{fmtDate(c.ts)}</div>
+              {(post.threadComments||[]).map(cc=>(
+                <div key={cc.id} style={{background:"var(--s2)",borderRadius:8,padding:"8px 10px",marginBottom:6}}>
+                  <div style={{fontSize:10,fontWeight:700,color:GOLD,marginBottom:2}}>{cc.author}</div>
+                  <div style={{fontSize:12,color:"var(--t2)",lineHeight:1.5}}>{cc.text}</div>
+                  <div style={{fontSize:10,color:"var(--t3)",marginTop:2}}>{fmtDate(cc.ts)}</div>
                 </div>
               ))}
-              {/* Add comment */}
               <div style={{display:"flex",gap:6,marginTop:6}}>
                 <input className="inp" value={newComment} onChange={e=>setNewComment(e.target.value)}
-                  placeholder="Add comment or feedback…" style={{flex:1,fontSize:12,padding:"6px 10px"}}
-                  onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();submitComment();}}}/>
+                  placeholder="Add comment..." style={{flex:1,fontSize:12,padding:"6px 10px"}}
+                  onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();submitComment()}}}/>
                 <button onClick={submitComment} className="bg" style={{padding:"6px 12px",fontSize:11,flexShrink:0}}>Post</button>
               </div>
             </div>
@@ -484,22 +537,21 @@ function PostCard({post,onRefresh,onEdit,onDelete,onStatusChange,onAddComment,ro
   );
 }
 
-// ── CHARTEX EMBED
 function CxEmbed({url}){
+  if(!url)return null;
   return(
     <div className="card pad" style={{marginBottom:14}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-        <div style={{fontSize:13,fontWeight:700,display:"flex",alignItems:"center",gap:8}}><Tt s={14} c={TT}/>Chartex Analytics <span style={{fontSize:10,color:TT,fontWeight:500}}>· live embed</span></div>
-        <a href={url} target="_blank" className="bo" style={{fontSize:11}}>Open in Chartex ↗</a>
+        <div style={{fontSize:13,fontWeight:700,display:"flex",alignItems:"center",gap:8}}><Tt s={14} c={TT}/>Chartex Analytics <span style={{fontSize:10,color:TT}}>live embed</span></div>
+        <a href={url} target="_blank" className="bo" style={{fontSize:11}}>Open in Chartex</a>
       </div>
       <div style={{borderRadius:10,overflow:"hidden",border:".5px solid var(--b1)"}}>
-        <iframe src={url} style={{width:"100%",height:520,border:"none",display:"block",background:"#000"}} allow="fullscreen" loading="lazy"/>
+        <iframe src={url} style={{width:"100%",height:520,border:"none",display:"block",background:"#000"}} loading="lazy" title="Chartex"/>
       </div>
     </div>
   );
 }
 
-// ── DASHBOARD
 function Dashboard({id,ro,cfg,db_,onDbChange}){
   const camps=db_?.campaigns||[];
   const camp=camps.find(c=>c.id===id)||null;
@@ -511,6 +563,7 @@ function Dashboard({id,ro,cfg,db_,onDbChange}){
   const[modal,setModal]=useState(null);
   const[editTgt,setEditTgt]=useState(null);
   const[copied,setCopied]=useState(false);
+  const[filterStatus,setFilterStatus]=useState("all");
 
   const setPosts=useCallback(next=>{
     const clean=next.map(({_ref,...r})=>r);
@@ -526,38 +579,33 @@ function Dashboard({id,ro,cfg,db_,onDbChange}){
       try{const tok=await spToken(cfg.spId,cfg.spSec);const tid=spId(c.spUrl);if(tok&&tid){const m=await spTrack(tid,tok);if(m)setSpMeta(m)}}catch{}
     }
     const ns={tt:null,ig:null};
-    const igAid=igAudioId(c.igUrl);
     if(c.ttUrl&&cfg?.hasRapid){
-      const mid=ttMid(c.ttUrl);
-      if(mid){const m=await fetchTTMusic(mid);if(m?.videoCount!=null)ns.tt=m.videoCount;}
+      const urls=(c.ttUrl||"").split("\n").map(u=>u.trim()).filter(Boolean);
+      let total=0;
+      for(const u of urls){const mid=ttMid(u);if(mid){const m=await fetchTTMusic(mid);if(m?.videoCount!=null)total+=Number(m.videoCount)||0;}}
+      if(total>0)ns.tt=total;
     }
+    const igAid=igAudioId(c.igUrl);
     if(igAid&&cfg?.hasRapid){
-      try{
-        const r=await fetch(`/api/ig-music?audioId=${igAid}`);
-        if(r.ok){const d=await r.json();const count=d?.reels_count||d?.clips_count||d?.media_count||d?.count||null;if(count!=null)ns.ig=count;}
-      }catch{}
+      try{const r=await fetch("/api/ig-music?audioId="+igAid);if(r.ok){const d=await r.json();const count=d?.reels_count||d?.clips_count||d?.media_count||d?.count||null;if(count!=null)ns.ig=count;}}catch{}
     }
     if(cfg?.cxId&&cfg?.cxToken){
       try{
-        const sid=spId(c.spUrl);
-        let song=sid?await cxFindSong(cfg,sid,null):null;
+        const sid=spId(c.spUrl);let song=sid?await cxFindSong(cfg,sid,null):null;
         if(!song&&c.artist)song=await cxFindSong(cfg,null,c.artist+" "+c.name);
-        if(song){
-          const st=await cxSongStats(cfg,song.id||song.song_id||song.chartex_id);
-          if(st){if(ns.tt==null)ns.tt=st.tiktok_total_video_count||null;if(ns.ig==null)ns.ig=st.instagram_reels_count||null;}
-        }
+        if(song){const st=await cxSongStats(cfg,song.id||song.song_id||song.chartex_id);if(st){if(ns.tt==null)ns.tt=st.tiktok_total_video_count||null;if(ns.ig==null)ns.ig=st.instagram_reels_count||null;}}
       }catch{}
     }
-    setSoundStats(ns);
-    setSyncing(false);
+    setSoundStats(ns);setSyncing(false);
   };
 
-  const addPost=data=>{setPosts([...posts,{...data,id:uid(),addedAt:Date.now(),_at:Date.now(),threadComments:[],status:"draft"}]);setModal(null)};
+  const addPost=data=>{setPosts([...posts,{...data,id:uid(),addedAt:Date.now(),_at:Date.now(),threadComments:[],status:data.status||"draft"}]);setModal(null)};
+  const addPosts=ps=>{setPosts([...posts,...ps]);setModal(null)};
   const saveEdit=data=>{setPosts(posts.map(p=>p.id===editTgt.id?{...p,...data,_at:Date.now()}:p));setModal(null);setEditTgt(null)};
   const removePost=pid=>{setPosts(posts.filter(p=>p.id!==pid));setModal(null);setEditTgt(null)};
 
   const refreshOne=useCallback(async p=>{
-    if(!cfg?.hasRapid)return;
+    if(!cfg?.hasRapid||!p.postUrl)return;
     onDbChange({...db_,posts:{...(db_?.posts||{}),[id]:posts.map(x=>x.id===p.id?{...x,_ref:true}:x)}});
     const d=await pullPost(p.postUrl);
     const next=posts.map(x=>x.id===p.id?{...mergePostData(x,d),_ref:false,_at:Date.now()}:x);
@@ -567,69 +615,49 @@ function Dashboard({id,ro,cfg,db_,onDbChange}){
   const refreshAll=useCallback(async()=>{
     if(refAll||!cfg?.hasRapid)return;
     setRefAll(true);
-    onDbChange({...db_,posts:{...(db_?.posts||{}),[id]:posts.map(p=>({...p,_ref:true}))}});
-    const next=await Promise.all(posts.map(async p=>{const d=await pullPost(p.postUrl);return{...mergePostData(p,d),_ref:false,_at:Date.now()}}));
-    setPosts(next);
+    const livePosts=posts.filter(p=>p.postUrl);
+    onDbChange({...db_,posts:{...(db_?.posts||{}),[id]:posts.map(p=>p.postUrl?{...p,_ref:true}:p)}});
+    const updated=await Promise.all(livePosts.map(async p=>{const d=await pullPost(p.postUrl);return{...mergePostData(p,d),_ref:false,_at:Date.now()}}));
+    const updatedMap=Object.fromEntries(updated.map(p=>[p.id,p]));
+    setPosts(posts.map(p=>updatedMap[p.id]||p));
     setRefAll(false);
   },[id,posts,db_,cfg,onDbChange,refAll]);
 
-  // Update post status
-  const changeStatus=(pid,newStatus)=>{
-    setPosts(posts.map(p=>p.id===pid?{...p,status:newStatus,_at:Date.now()}:p));
-  };
-
-  // Add comment to a post
-  const addComment=(pid,comment)=>{
-    setPosts(posts.map(p=>p.id===pid?{...p,threadComments:[...(p.threadComments||[]),comment]}:p));
-  };
-
+  const changeStatus=(pid,newStatus)=>setPosts(posts.map(p=>p.id===pid?{...p,status:newStatus,_at:Date.now()}:p));
+  const addComment=(pid,comment)=>setPosts(posts.map(p=>p.id===pid?{...p,threadComments:[...(p.threadComments||[]),comment]}:p));
   const saveCamp=data=>{onDbChange({...db_,campaigns:camps.map(c=>c.id===id?{...c,...data}:c)});setModal(null)};
 
-  // Totals
-  const T=posts.reduce((a,p)=>({
-    v:  a.v +(Number(p.views)   ||0),
-    l:  a.l +(Number(p.likes)   ||0),
-    c_: a.c_+(Number(p.comments)||0),
-    s:  a.s +(Number(p.saves)   ||0),
-    b:  a.b +(Number(p.budget)  ||0),
-  }),{v:0,l:0,c_:0,s:0,b:0});
+  const T=posts.reduce((a,p)=>({v:a.v+(Number(p.views)||0),l:a.l+(Number(p.likes)||0),c_:a.c_+(Number(p.comments)||0),s:a.s+(Number(p.saves)||0),b:a.b+(Number(p.budget)||0)}),{v:0,l:0,c_:0,s:0,b:0});
   const totalEr=T.v>0?((T.l+T.c_)/T.v*100).toFixed(2)+"%":"—";
-  const emv=T.v*0.008;
-  const roi=T.b>0?((emv-T.b)/T.b*100):0;
-  const cpv=T.v>0?(T.b/T.v):0;
-  const cpe=(T.l+T.c_+T.s)>0?(T.b/(T.l+T.c_+T.s)):0;
-
-  // Status summary
+  const emv=T.v*0.008;const roi=T.b>0?((emv-T.b)/T.b*100):0;const cpv=T.v>0?(T.b/T.v):0;const cpe=(T.l+T.c_+T.s)>0?(T.b/(T.l+T.c_+T.s)):0;
   const statusCounts=posts.reduce((a,p)=>{a[p.status||"draft"]=(a[p.status||"draft"]||0)+1;return a},{});
-
-  const shareUrl=`${location.origin}${location.pathname}#/view/${id}`;
+  const filteredPosts=filterStatus==="all"?posts:posts.filter(p=>(p.status||"draft")===filterStatus);
+  const ttSoundCount=(camp?.ttUrl||"").split("\n").filter(Boolean).length;
+  const shareUrl=location.origin+location.pathname+"#/view/"+id;
   const copyShare=()=>{try{navigator.clipboard.writeText(shareUrl)}catch{};setCopied(true);setTimeout(()=>setCopied(false),2200)};
 
-  if(!camp){
-    return(
-      <div style={{textAlign:"center",padding:"4rem"}}>
-        <p style={{color:"var(--t2)",marginBottom:8,fontSize:15,fontWeight:600}}>Campaign not found</p>
-        <div style={{display:"flex",gap:10,justifyContent:"center"}}>
-          <button className="bo" onClick={()=>location.reload()}>Refresh</button>
-          <button className="bg" onClick={()=>location.hash="/"}>← All Campaigns</button>
-        </div>
+  if(!camp)return(
+    <div style={{textAlign:"center",padding:"4rem"}}>
+      <p style={{color:"var(--t2)",marginBottom:8,fontSize:15,fontWeight:600}}>Campaign not found</p>
+      <div style={{display:"flex",gap:10,justifyContent:"center"}}>
+        <button className="bo" onClick={()=>location.reload()}>Refresh</button>
+        <button className="bg" onClick={()=>location.hash="/"}>Back to Campaigns</button>
       </div>
-    );
-  }
+    </div>
+  );
 
   return(
     <div className="page">
-      {/* HEADER */}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"1.5rem",gap:12,flexWrap:"wrap"}}>
         <div style={{display:"flex",alignItems:"center",gap:14}}>
-          {!ro&&<button className="bo" onClick={()=>location.hash="/"} style={{fontSize:12}}>← Back</button>}
+          {!ro&&<button className="bo" onClick={()=>location.hash="/"} style={{fontSize:12}}>Back</button>}
           {spMeta?.art&&<img src={spMeta.art} alt="" style={{width:52,height:52,borderRadius:8,objectFit:"cover",border:".5px solid var(--b2)"}}/>}
           <div>
             <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
               <h1 style={{fontSize:20,fontWeight:800,letterSpacing:"-.3px"}}>{camp.name}</h1>
               {!ro&&<button className="bo" onClick={()=>setModal("edit-camp")} style={{padding:"4px 8px",fontSize:11}}><Pn s={10}/>Edit</button>}
               {ro&&<span className="tag" style={{background:"var(--ga)",color:GOLD,border:".5px solid var(--gb)"}}>PUBLIC VIEW</span>}
-              {syncing&&<span style={{fontSize:11,color:"var(--t3)",display:"flex",alignItems:"center",gap:4}}><span className="spin"><Rf s={10}/></span>Syncing…</span>}
+              {syncing&&<span style={{fontSize:11,color:"var(--t3)",display:"flex",alignItems:"center",gap:4}}><span className="spin"><Rf s={10}/></span>Syncing...</span>}
             </div>
             <p style={{color:"var(--t2)",fontSize:13,marginTop:2}}>
               {camp.artist}
@@ -639,41 +667,38 @@ function Dashboard({id,ro,cfg,db_,onDbChange}){
           </div>
         </div>
         <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
-          {camp.ttUrl&&<a href={camp.ttUrl} target="_blank" className="bo"><Tt s={12} c={TT}/>TikTok Sound</a>}
+          {camp.ttUrl&&<a href={camp.ttUrl.split("\n")[0]} target="_blank" className="bo"><Tt s={12} c={TT}/>TikTok{ttSoundCount>1?" ("+ttSoundCount+" sounds)":""}</a>}
           {camp.igUrl&&<a href={camp.igUrl} target="_blank" className="bo"><Ig s={12} c={IG}/>IG Audio</a>}
           {camp.spUrl&&<a href={camp.spUrl} target="_blank" className="bo"><Sv s={12} c={SP}/>Spotify</a>}
           {!ro&&<button className="bo" onClick={()=>syncAll(camp)}><Rf s={12}/>Sync</button>}
-          <button className="bo" onClick={copyShare}>{copied?"✓ Copied":"🔗 Share"}</button>
+          <button className="bo" onClick={copyShare}>{copied?"Copied":"Share"}</button>
         </div>
       </div>
 
-      {/* STATUS PIPELINE */}
       <div className="card pad" style={{marginBottom:14}}>
-        <div style={{fontSize:12,fontWeight:700,marginBottom:12,color:"var(--t2)",textTransform:"uppercase",letterSpacing:".07em"}}>Post Pipeline</div>
+        <div style={{fontSize:11,fontWeight:700,color:"var(--t2)",textTransform:"uppercase",letterSpacing:".07em",marginBottom:12}}>Post Pipeline</div>
         <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
           {STATUS_ORDER.map((st,i)=>(
             <React.Fragment key={st}>
               <div style={{textAlign:"center",minWidth:80}}>
-                <div style={{fontSize:22,fontWeight:800,color:STATUS_COLOR[st],letterSpacing:"-.5px"}}>{statusCounts[st]||0}</div>
-                <div className={`tag ${STATUS_CLASS[st]}`} style={{marginTop:4}}>{STATUS_LABEL[st]}</div>
+                <div style={{fontSize:24,fontWeight:800,color:STATUS_COLOR[st]}}>{statusCounts[st]||0}</div>
+                <div className={"tag "+STATUS_CLASS[st]} style={{marginTop:4}}>{STATUS_LABEL[st]}</div>
               </div>
-              {i<STATUS_ORDER.length-1&&<div style={{color:"var(--b3)",fontSize:20,fontWeight:300}}>→</div>}
+              {i<STATUS_ORDER.length-1&&<div style={{color:"var(--b3)",fontSize:18}}>→</div>}
             </React.Fragment>
           ))}
-          <div style={{marginLeft:"auto",fontSize:11,color:"var(--t3)"}}>Use ← → on each post card to advance status</div>
         </div>
       </div>
 
-      {/* SOUND CREATES */}
       {(camp.ttUrl||camp.igUrl)&&(
         <div className="card pad" style={{marginBottom:14}}>
           <div style={{fontSize:13,fontWeight:700,marginBottom:12}}>Sound Page — Videos Using This Sound</div>
           <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
             {camp.ttUrl&&(
               <div style={{flex:1,minWidth:160,background:"var(--ta)",border:".5px solid rgba(105,201,208,0.25)",borderRadius:10,padding:"14px 16px"}}>
-                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}><Tt s={14} c={TT}/><span style={{fontSize:10,fontWeight:700,color:TT,textTransform:"uppercase",letterSpacing:".05em"}}>TikTok Sound</span></div>
+                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}><Tt s={14} c={TT}/><span style={{fontSize:10,fontWeight:700,color:TT,textTransform:"uppercase",letterSpacing:".05em"}}>TikTok Sound{ttSoundCount>1?" ("+ttSoundCount+" combined)":""}</span></div>
                 <div style={{fontSize:32,fontWeight:800,color:TT,letterSpacing:"-.5px"}}>{soundStats.tt!=null?fmt(soundStats.tt):"—"}</div>
-                <div style={{fontSize:11,color:"var(--t3)",marginTop:2}}>videos created with this sound</div>
+                <div style={{fontSize:11,color:"var(--t3)",marginTop:2}}>{ttSoundCount>1?"combined across all sounds":"videos created with this sound"}</div>
               </div>
             )}
             {camp.igUrl&&(
@@ -687,18 +712,17 @@ function Dashboard({id,ro,cfg,db_,onDbChange}){
         </div>
       )}
 
-      {/* PERFORMANCE TOTALS */}
       <div className="card pad" style={{marginBottom:14}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:10}}>
           <div>
             <div style={{fontSize:13,fontWeight:700}}>Creator Post Performance</div>
             <div style={{fontSize:11,color:"var(--t2)",marginTop:2}}>{posts.length} post{posts.length!==1?"s":""} · live metrics via RapidAPI</div>
           </div>
-          {!ro&&<button className="bg" onClick={refreshAll} disabled={refAll}><Rf s={13} spin={refAll}/>{refAll?"Refreshing…":"Refresh All"}</button>}
+          {!ro&&<button className="bg" onClick={refreshAll} disabled={refAll}><Rf s={13} spin={refAll}/>{refAll?"Refreshing...":"Refresh All Live Posts"}</button>}
         </div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(115px,1fr))",gap:8}}>
           {[["Total Views",fmt(T.v),true],["Total Likes",fmt(T.l),false],["Total Comments",fmt(T.c_),false],["Total Saves",fmt(T.s),false],["Avg Eng Rate",totalEr,false],["Posts",String(posts.length),false]].map(([l,v,g])=>(
-            <div key={l} className="card pad" style={{borderTop:g?`2px solid ${GOLD}`:undefined}}>
+            <div key={l} className="card pad" style={{borderTop:g?"2px solid "+GOLD:undefined}}>
               <div style={{fontSize:9,fontWeight:700,textTransform:"uppercase",letterSpacing:".07em",color:"var(--t2)",marginBottom:5}}>{l}</div>
               <div style={{fontSize:20,fontWeight:800,color:g?GOLD:"var(--t1)",letterSpacing:"-.5px"}}>{v}</div>
             </div>
@@ -706,7 +730,7 @@ function Dashboard({id,ro,cfg,db_,onDbChange}){
         </div>
         {T.b>0&&(
           <div style={{marginTop:16,paddingTop:16,borderTop:".5px solid var(--b1)"}}>
-            <div style={{fontSize:12,fontWeight:700,color:GOLD,marginBottom:10,textTransform:"uppercase",letterSpacing:".06em"}}>💰 Budget & ROI</div>
+            <div style={{fontSize:12,fontWeight:700,color:GOLD,marginBottom:10,textTransform:"uppercase",letterSpacing:".06em"}}>💰 Budget and ROI</div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(130px,1fr))",gap:8,marginBottom:10}}>
               {[
                 ["Total Budget",fmtUSD(T.b),"rgba(201,168,76,0.08)","rgba(201,168,76,0.3)",GOLD],
@@ -715,39 +739,56 @@ function Dashboard({id,ro,cfg,db_,onDbChange}){
                 ["Cost / View",cpv>0?"$"+cpv.toFixed(4):"—","var(--s2)","var(--b1)","var(--t1)"],
                 ["Cost / Engagement",cpe>0?"$"+cpe.toFixed(2):"—","var(--s2)","var(--b1)","var(--t1)"],
               ].map(([l,v,bg,border,c])=>(
-                <div key={l} style={{background:bg,borderRadius:10,padding:"10px 12px",border:`.5px solid ${border}`}}>
+                <div key={l} style={{background:bg,borderRadius:10,padding:"10px 12px",border:".5px solid "+border}}>
                   <div style={{fontSize:9,fontWeight:700,textTransform:"uppercase",letterSpacing:".07em",color:"var(--t2)",marginBottom:4}}>{l}</div>
-                  <div style={{fontSize:20,fontWeight:800,color:c,letterSpacing:"-.3px"}}>{v}</div>
+                  <div style={{fontSize:18,fontWeight:800,color:c,letterSpacing:"-.3px"}}>{v}</div>
                 </div>
               ))}
             </div>
-            <p style={{fontSize:10,color:"var(--t3)",lineHeight:1.55}}>EMV based on ~$8 CPM music/entertainment industry benchmark · ROI = (EMV − Budget) ÷ Budget</p>
+            <p style={{fontSize:10,color:"var(--t3)",lineHeight:1.55}}>EMV based on ~$8 CPM music/entertainment benchmark · ROI = (EMV − Budget) ÷ Budget</p>
           </div>
         )}
       </div>
 
-      {/* CREATOR POSTS */}
       <div className="card pad" style={{marginBottom:14}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:10}}>
           <div>
             <div style={{fontSize:13,fontWeight:700}}>Creator Posts</div>
-            <div style={{fontSize:11,color:"var(--t2)",marginTop:2}}>Paste TikTok or Instagram URL · metrics auto-pull · status tracking · comments</div>
+            <div style={{fontSize:11,color:"var(--t2)",marginTop:2}}>Live metrics · Status tracking · Draft uploads · Comments</div>
           </div>
-          {!ro&&<button className="bg" onClick={()=>setModal("add")}>+ Add Post</button>}
+          {!ro&&(
+            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+              <button className="bg" onClick={()=>setModal("add")}>+ Add Post</button>
+              <button className="bo" onClick={()=>setModal("add-draft")} style={{borderColor:"rgba(136,136,136,0.4)",color:"var(--t2)"}}>📁 Draft</button>
+              <button className="bo" onClick={()=>setModal("add-bulk")} style={{borderColor:"rgba(201,168,76,0.3)",color:GOLD}}>⚡ Add Multiple</button>
+            </div>
+          )}
         </div>
-        {posts.length===0?(
+
+        {posts.length>0&&(
+          <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
+            {["all",...STATUS_ORDER].map(st=>(
+              <button key={st} onClick={()=>setFilterStatus(st)}
+                style={{fontSize:11,padding:"4px 12px",borderRadius:8,border:".5px solid "+(filterStatus===st?GOLD:"var(--b2)"),background:filterStatus===st?"rgba(201,168,76,0.15)":"var(--s2)",color:filterStatus===st?GOLD:"var(--t2)",cursor:"pointer"}}>
+                {st==="all"?"All ("+posts.length+")":STATUS_LABEL[st]+(statusCounts[st]?" ("+statusCounts[st]+")":"")}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {filteredPosts.length===0?(
           <div style={{textAlign:"center",padding:"3rem 1rem",border:".5px dashed var(--b2)",borderRadius:10}}>
             <div style={{fontSize:32,marginBottom:12}}>🎬</div>
-            <p style={{fontSize:14,fontWeight:600,marginBottom:6}}>No creator posts yet</p>
-            <p style={{fontSize:12,color:"var(--t2)",marginBottom:16,maxWidth:440,margin:"0 auto 16px",lineHeight:1.7}}>Paste any TikTok or Instagram URL — views, likes, comments pull automatically. Track draft → in review → approved → live status per post.</p>
-            {!ro&&<button className="bg" onClick={()=>setModal("add")}>Add First Post</button>}
+            <p style={{fontSize:14,fontWeight:600,marginBottom:6}}>{posts.length===0?"No creator posts yet":"No posts match this filter"}</p>
+            <p style={{fontSize:12,color:"var(--t2)",marginBottom:16,maxWidth:440,margin:"0 auto 16px",lineHeight:1.7}}>
+              {posts.length===0?"Paste any TikTok or Instagram URL, upload a draft, or add multiple posts at once.":"Try a different status filter above."}
+            </p>
+            {!ro&&posts.length===0&&<button className="bg" onClick={()=>setModal("add")}>Add First Post</button>}
           </div>
         ):(
-          <div className="sx" style={{paddingTop:2}}>
-            {posts.map(p=>(
-              <PostCard
-                key={p.id}
-                post={p}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:14}}>
+            {filteredPosts.map(p=>(
+              <PostCard key={p.id} post={p}
                 onRefresh={()=>refreshOne(p)}
                 onEdit={()=>{setEditTgt(p);setModal("edit-post")}}
                 onDelete={()=>{setEditTgt(p);setModal("del")}}
@@ -760,24 +801,16 @@ function Dashboard({id,ro,cfg,db_,onDbChange}){
         )}
       </div>
 
-      {/* CHARTEX EMBED */}
       {camp.cxUrl&&<CxEmbed url={camp.cxUrl}/>}
 
-      {/* SPOTIFY */}
       {spMeta&&(
         <div className="card pad" style={{marginBottom:14,display:"grid",gridTemplateColumns:"auto 1fr",gap:16,alignItems:"center"}}>
           <img src={spMeta.art} alt="" style={{width:80,height:80,borderRadius:8,objectFit:"cover",border:".5px solid var(--b1)"}}/>
           <div>
-            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
-              <Sv s={16} c={SP}/>
-              <span style={{fontSize:14,fontWeight:700}}>{spMeta.name}</span>
-              <span style={{fontSize:12,color:"var(--t2)"}}>· {spMeta.artist}</span>
-            </div>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}><Sv s={16} c={SP}/><span style={{fontSize:14,fontWeight:700}}>{spMeta.name}</span><span style={{fontSize:12,color:"var(--t2)"}}>· {spMeta.artist}</span></div>
             {spMeta.pop!=null&&(
               <div style={{display:"flex",alignItems:"center",gap:10}}>
-                <div style={{flex:1,height:4,background:"var(--s2)",borderRadius:2,overflow:"hidden",maxWidth:220}}>
-                  <div style={{height:"100%",width:spMeta.pop+"%",background:SP,borderRadius:2}}/>
-                </div>
+                <div style={{flex:1,height:4,background:"var(--s2)",borderRadius:2,overflow:"hidden",maxWidth:220}}><div style={{height:"100%",width:spMeta.pop+"%",background:SP,borderRadius:2}}/></div>
                 <span style={{fontSize:12,fontWeight:700,color:SP}}>{spMeta.pop}/100</span>
                 {camp.spUrl&&<a href={camp.spUrl} target="_blank" style={{background:SP,color:"#000",borderRadius:6,padding:"4px 10px",fontSize:11,fontWeight:700}}>Open in Spotify</a>}
               </div>
@@ -786,18 +819,18 @@ function Dashboard({id,ro,cfg,db_,onDbChange}){
         </div>
       )}
 
-      {/* SHARE */}
       <div className="card pad" style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
         <div style={{minWidth:0}}>
           <p style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:".07em",color:"var(--t2)",marginBottom:3}}>Public share link — no login required</p>
           <p style={{fontSize:11,color:GOLD,fontFamily:"monospace",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{shareUrl}</p>
         </div>
-        <button className="bg" onClick={copyShare} style={{flexShrink:0}}>{copied?"✓ Copied!":"Copy Link"}</button>
+        <button className="bg" onClick={copyShare} style={{flexShrink:0}}>{copied?"Copied!":"Copy Link"}</button>
       </div>
 
-      {/* MODALS */}
-      {modal==="add"&&<Modal title="Add Creator Post" onClose={()=>setModal(null)} mw={700}><PostForm cfg={cfg} onSubmit={addPost} onClose={()=>setModal(null)}/></Modal>}
-      {modal==="edit-post"&&editTgt&&<Modal title="Edit Creator Post" onClose={()=>{setModal(null);setEditTgt(null)}} mw={700}><PostForm initial={editTgt} cfg={cfg} onSubmit={saveEdit} onClose={()=>{setModal(null);setEditTgt(null)}} label="Save Changes"/></Modal>}
+      {modal==="add"&&<Modal title="Add Creator Post" onClose={()=>setModal(null)} mw={680}><PostForm cfg={cfg} onSubmit={addPost} onClose={()=>setModal(null)}/></Modal>}
+      {modal==="add-draft"&&<Modal title="Add Draft Post" onClose={()=>setModal(null)} mw={580}><DraftForm onSubmit={addPost} onClose={()=>setModal(null)}/></Modal>}
+      {modal==="add-bulk"&&<Modal title="Add Multiple Posts (up to 25)" onClose={()=>setModal(null)} mw={700}><BulkAddForm cfg={cfg} onSubmit={addPosts} onClose={()=>setModal(null)}/></Modal>}
+      {modal==="edit-post"&&editTgt&&<Modal title="Edit Creator Post" onClose={()=>{setModal(null);setEditTgt(null)}} mw={680}><PostForm initial={editTgt} cfg={cfg} onSubmit={saveEdit} onClose={()=>{setModal(null);setEditTgt(null)}} label="Save Changes"/></Modal>}
       {modal==="edit-camp"&&<Modal title="Edit Campaign" onClose={()=>setModal(null)} mw={600}><CampForm init={camp} onSubmit={saveCamp} onClose={()=>setModal(null)}/></Modal>}
       {modal==="del"&&editTgt&&(
         <Modal title="Remove Post?" onClose={()=>{setModal(null);setEditTgt(null)}} mw={400}>
@@ -812,45 +845,37 @@ function Dashboard({id,ro,cfg,db_,onDbChange}){
   );
 }
 
-// ── CAMPAIGN LIST
 function CampaignList({db_,onDbChange}){
   const camps=db_?.campaigns||[];
   const[modal,setModal]=useState(null);
   const[editTgt,setEditTgt]=useState(null);
   const[del,setDel]=useState(null);
-
   const create=f=>{const c={...f,id:uid(),createdAt:Date.now()};onDbChange({...db_,campaigns:[...camps,c]});setModal(null);location.hash="/campaign/"+c.id};
   const update=f=>{onDbChange({...db_,campaigns:camps.map(c=>c.id===editTgt.id?{...c,...f}:c)});setModal(null);setEditTgt(null)};
   const remove=cid=>{const posts={...(db_?.posts||{})};delete posts[cid];onDbChange({...db_,campaigns:camps.filter(c=>c.id!==cid),posts});setDel(null)};
-
-  // Total post counts by status across all campaigns
   const allPosts=Object.values(db_?.posts||{}).flat();
   const totalLive=allPosts.filter(p=>p.status==="live").length;
   const totalApproved=allPosts.filter(p=>p.status==="approved").length;
   const totalReview=allPosts.filter(p=>p.status==="review").length;
-
   return(
     <div className="page">
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"1.5rem",flexWrap:"wrap",gap:12}}>
         <div>
           <h1 style={{fontSize:28,fontWeight:800,letterSpacing:"-.5px"}}><span style={{color:GOLD}}>✦</span> Creator Campaigns</h1>
-          <p style={{color:"var(--t2)",marginTop:4,fontSize:13}}>Live metrics · Status pipeline · Comments · Cross-device sync</p>
+          <p style={{color:"var(--t2)",marginTop:4,fontSize:13}}>Live metrics · Status pipeline · Draft uploads · Cross-device sync</p>
         </div>
         <button className="bg" onClick={()=>setModal("create")}>+ New Campaign</button>
       </div>
-
-      {/* Global status bar */}
       {allPosts.length>0&&(
-        <div className="card pad" style={{marginBottom:20,display:"flex",gap:18,flexWrap:"wrap"}}>
-          {[["Live",totalLive,STATUS_COLOR.live],["Approved",totalApproved,STATUS_COLOR.approved],["In Review",totalReview,STATUS_COLOR.review],["Total Posts",allPosts.length,GOLD]].map(([l,v,c])=>(
-            <div key={l} style={{textAlign:"center"}}>
-              <div style={{fontSize:24,fontWeight:800,color:c}}>{v}</div>
+        <div className="card pad" style={{marginBottom:20,display:"flex",gap:24,flexWrap:"wrap"}}>
+          {[["🟣 Live",totalLive,PURPLE],["Approved",totalApproved,"#4caf50"],["In Review",totalReview,"#f0c040"],["Total Posts",allPosts.length,GOLD]].map(([l,v,c])=>(
+            <div key={l}>
+              <div style={{fontSize:26,fontWeight:800,color:c}}>{v}</div>
               <div style={{fontSize:10,color:"var(--t2)",fontWeight:700,textTransform:"uppercase",letterSpacing:".07em",marginTop:2}}>{l}</div>
             </div>
           ))}
         </div>
       )}
-
       {camps.length===0?(
         <div className="card" style={{padding:"5rem 2rem",textAlign:"center"}}>
           <div style={{fontSize:44,color:GOLD,marginBottom:18}}>✦</div>
@@ -864,34 +889,32 @@ function CampaignList({db_,onDbChange}){
             const campPosts=((db_?.posts||{})[c.id])||[];
             const livePosts=campPosts.filter(p=>p.status==="live").length;
             const totalView=campPosts.reduce((a,p)=>a+Number(p.views||0),0);
+            const ttCount=(c.ttUrl||"").split("\n").filter(Boolean).length;
             return(
               <div key={c.id} className="card pad" style={{cursor:"pointer",transition:"border-color .15s"}}
                 onMouseEnter={e=>e.currentTarget.style.borderColor="rgba(201,168,76,0.35)"}
                 onMouseLeave={e=>e.currentTarget.style.borderColor="var(--b1)"}
                 onClick={()=>location.hash="/campaign/"+c.id}>
                 <div style={{display:"flex",gap:12,marginBottom:12}}>
-                  <div style={{width:42,height:42,borderRadius:8,background:"var(--ga)",border:".5px solid var(--gb)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                    <span style={{color:GOLD,fontSize:22}}>✦</span>
-                  </div>
+                  <div style={{width:42,height:42,borderRadius:8,background:"var(--ga)",border:".5px solid var(--gb)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><span style={{color:GOLD,fontSize:22}}>✦</span></div>
                   <div style={{flex:1,minWidth:0}}>
                     <p style={{fontWeight:700,fontSize:15,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</p>
                     <p style={{fontSize:12,color:"var(--t2)",marginTop:2}}>{c.artist}</p>
                   </div>
                 </div>
                 {c.desc&&<p style={{fontSize:12,color:"var(--t2)",lineHeight:1.5,marginBottom:10}}>{c.desc}</p>}
-                {/* Quick stats */}
                 {campPosts.length>0&&(
                   <div style={{display:"flex",gap:10,marginBottom:10}}>
                     <span style={{fontSize:11,color:GOLD,fontWeight:700}}>{campPosts.length} posts</span>
-                    {livePosts>0&&<span style={{fontSize:11,color:STATUS_COLOR.live}}>🔴 {livePosts} live</span>}
+                    {livePosts>0&&<span style={{fontSize:11,color:PURPLE}}>🟣 {livePosts} live</span>}
                     {totalView>0&&<span style={{fontSize:11,color:"var(--t2)"}}>{fmt(totalView)} views</span>}
                   </div>
                 )}
                 <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                  {c.ttUrl&&<span className="tag" style={{background:"var(--ta)",color:TT}}><Tt s={9} c={TT}/>TikTok</span>}
+                  {c.ttUrl&&<span className="tag" style={{background:"var(--ta)",color:TT}}><Tt s={9} c={TT}/>TikTok{ttCount>1?" x"+ttCount:""}</span>}
                   {c.igUrl&&<span className="tag" style={{background:"var(--ia)",color:IG}}><Ig s={9} c={IG}/>Instagram</span>}
                   {c.spUrl&&<span className="tag" style={{background:"rgba(29,185,84,0.11)",color:SP}}><Sv s={9} c={SP}/>Spotify</span>}
-                  {c.cxUrl&&<span className="tag" style={{background:"var(--ta)",color:TT}}>Chartex Live</span>}
+                  {c.cxUrl&&<span className="tag" style={{background:"var(--ta)",color:TT}}>Chartex</span>}
                 </div>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:14,paddingTop:12,borderTop:".5px solid var(--b1)"}}>
                   <span style={{fontSize:11,color:"var(--t3)"}}>{new Date(c.createdAt).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</span>
@@ -905,7 +928,6 @@ function CampaignList({db_,onDbChange}){
           })}
         </div>
       )}
-
       {modal==="create"&&<Modal title="New Campaign" onClose={()=>setModal(null)} mw={600}><CampForm onSubmit={create} onClose={()=>setModal(null)}/></Modal>}
       {modal==="edit"&&editTgt&&<Modal title="Edit Campaign" onClose={()=>{setModal(null);setEditTgt(null)}} mw={600}><CampForm init={editTgt} onSubmit={update} onClose={()=>{setModal(null);setEditTgt(null)}}/></Modal>}
       {del&&(
@@ -921,7 +943,6 @@ function CampaignList({db_,onDbChange}){
   );
 }
 
-// ── APP
 function App(){
   const[hash,setHash]=useState(location.hash||"");
   const[cfg,setCfg]=useState(null);
@@ -937,15 +958,9 @@ function App(){
       try{const r=await fetch("/config");if(r.ok)serverCfg=await r.json()}catch(e){console.warn("fetch /config failed:",e)}
       setCfg(serverCfg);
       let data=null;
-      if(serverCfg.jbKey&&serverCfg.jbBin){
-        data=await jbRead(serverCfg.jbKey,serverCfg.jbBin);
-      }
-      if(!data){
-        if(!serverCfg.jbKey||!serverCfg.jbBin)setError("JSONBIN_KEY or JSONBIN_BIN not set on Render. Data will not sync across devices.");
-        data={campaigns:[],posts:{}};
-      }
-      setDb(data);
-      setReady(true);
+      if(serverCfg.jbKey&&serverCfg.jbBin){data=await jbRead(serverCfg.jbKey,serverCfg.jbBin);}
+      if(!data){if(!serverCfg.jbKey||!serverCfg.jbBin)setError("JSONBIN_KEY or JSONBIN_BIN not set on Render.");data={campaigns:[],posts:{}};}
+      setDb(data);setReady(true);
     })();
     const h=()=>setHash(location.hash||"");
     window.addEventListener("hashchange",h);
@@ -956,34 +971,22 @@ function App(){
     setDb(updated);
     if(pending.current)clearTimeout(pending.current);
     pending.current=setTimeout(async()=>{
-      if(cfg?.jbKey&&cfg?.jbBin&&!saving.current){
-        saving.current=true;
-        await jbWrite(cfg.jbKey,cfg.jbBin,updated);
-        saving.current=false;
-      }
+      if(cfg?.jbKey&&cfg?.jbBin&&!saving.current){saving.current=true;await jbWrite(cfg.jbKey,cfg.jbBin,updated);saving.current=false;}
     },500);
   },[cfg]);
 
-  if(!ready){
-    return(
-      <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",flexDirection:"column",gap:14,color:"var(--t3)",fontSize:13}}>
-        <div className="spin" style={{width:22,height:22,border:"2px solid rgba(255,255,255,0.08)",borderTopColor:GOLD,borderRadius:"50%"}}></div>
-        Loading from JSONbin…
-      </div>
-    );
-  }
+  if(!ready)return(
+    <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",flexDirection:"column",gap:14,color:"var(--t3)",fontSize:13}}>
+      <div className="spin" style={{width:22,height:22,border:"2px solid rgba(255,255,255,0.08)",borderTopColor:GOLD,borderRadius:"50%"}}></div>
+      Loading from JSONbin...
+    </div>
+  );
 
   const h=(hash||"").replace("#","");
   let page;
-  if(h.startsWith("/campaign/")){
-    const id=h.split("/")[2];
-    page=<Dashboard id={id} ro={false} cfg={cfg} db_={db_} onDbChange={onDbChange}/>;
-  }else if(h.startsWith("/view/")){
-    const id=h.split("/")[2];
-    page=<Dashboard id={id} ro={true} cfg={cfg} db_={db_} onDbChange={onDbChange}/>;
-  }else{
-    page=<CampaignList db_={db_} onDbChange={onDbChange} cfg={cfg}/>;
-  }
+  if(h.startsWith("/campaign/")){const id=h.split("/")[2];page=<Dashboard id={id} ro={false} cfg={cfg} db_={db_} onDbChange={onDbChange}/>;}
+  else if(h.startsWith("/view/")){const id=h.split("/")[2];page=<Dashboard id={id} ro={true} cfg={cfg} db_={db_} onDbChange={onDbChange}/>;}
+  else page=<CampaignList db_={db_} onDbChange={onDbChange} cfg={cfg}/>;
 
   return(
     <>
@@ -993,11 +996,8 @@ function App(){
   );
 }
 
-try{
-  ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
-}catch(e){
-  document.getElementById("root").innerHTML=`<div style="color:#e53e3e;padding:2rem;font-family:sans-serif;background:#111"><h2 style="margin-bottom:8px">Error</h2><pre style="font-size:12px;opacity:.7">${e.message}</pre></div>`;
-}
+try{ReactDOM.createRoot(document.getElementById("root")).render(<App/>);}
+catch(e){document.getElementById("root").innerHTML='<div style="color:#e53e3e;padding:2rem;font-family:sans-serif;background:#111"><h2 style="margin-bottom:8px">Error</h2><pre style="font-size:12px;opacity:.7">'+e.message+'</pre></div>';}
 </script>
 </body>
 </html>
