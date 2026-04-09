@@ -438,38 +438,98 @@ function CampForm({init,onSubmit,onClose}){
   );
 }
 
-function PostCard({post,onRefresh,onEdit,onDelete,onStatusChange,onAddComment,ro}){
+function MediaViewer({src,isVideo,onClose}){
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.97)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={e=>{if(e.target===e.currentTarget)onClose()}}>
+      <button onClick={onClose} style={{position:"absolute",top:20,right:20,color:"#fff",fontSize:28,lineHeight:1,zIndex:10,background:"rgba(255,255,255,0.1)",borderRadius:"50%",width:44,height:44,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+      {isVideo
+        ?<video src={src} controls autoPlay style={{maxHeight:"95vh",maxWidth:"95vw",borderRadius:8,objectFit:"contain"}}/>
+        :<img src={src} alt="" style={{maxHeight:"95vh",maxWidth:"95vw",borderRadius:8,objectFit:"contain"}}/>
+      }
+    </div>
+  );
+}
+
+function PostCard({post,onRefresh,onEdit,onDelete,onStatusChange,onAddComment,onMediaUpload,ro}){
   const isIG=post.platform==="instagram";
   const P=isIG?{I:Ig,c:IG,label:"Instagram"}:{I:Tt,c:TT,label:"TikTok"};
   const thumb=proxyThumb(post.thumbnail);
   const[showComments,setShowComments]=useState(false);
   const[newComment,setNewComment]=useState("");
+  const[mediaOpen,setMediaOpen]=useState(false);
+  const[copied,setCopied]=useState(false);
   const status=post.status||"draft";
+  const fileRef=useRef(null);
+  const isVideo=post.thumbnail&&(post.thumbnail.startsWith("blob:")&&post.thumbnail.includes("video")||post.thumbnail?.includes(".mp4")||post.thumbnail?.includes(".mov"));
   const submitComment=()=>{if(!newComment.trim())return;onAddComment(post.id,{id:uid(),text:newComment.trim(),author:"Wirehouse Media",ts:new Date().toISOString()});setNewComment("")};
   const nextStatus=()=>{const i=STATUS_ORDER.indexOf(status);if(i<STATUS_ORDER.length-1)onStatusChange(post.id,STATUS_ORDER[i+1])};
   const prevStatus=()=>{const i=STATUS_ORDER.indexOf(status);if(i>0)onStatusChange(post.id,STATUS_ORDER[i-1])};
   const vv=Number(post.views)||0,lk=Number(post.likes)||0,cm=Number(post.comments)||0;
   const er=vv>0?((lk+cm)/vv*100).toFixed(2)+"%":"—";
+  const shareUrl=post.postUrl||"";
+  const copyCardLink=e=>{e.stopPropagation();try{navigator.clipboard.writeText(shareUrl)}catch{};setCopied(true);setTimeout(()=>setCopied(false),2000)};
+  const onFileChange=e=>{
+    const file=e.target.files?.[0];
+    if(!file)return;
+    const url=URL.createObjectURL(file);
+    onMediaUpload(post.id,url);
+  };
   return(
     <div style={{background:"var(--s1)",border:".5px solid var(--b1)",borderRadius:14,overflow:"hidden",display:"flex",flexDirection:"column",animation:"up .2s ease"}}>
-      {thumb?(
-        post.postUrl
-          ?<a href={post.postUrl} target="_blank" style={{display:"block",height:180,overflow:"hidden",background:"#000",flexShrink:0,position:"relative"}}>
-              <img src={thumb} alt="" style={{width:"100%",height:"100%",objectFit:"cover",opacity:.92}} onError={e=>e.target.style.display="none"}/>
-              <div style={{position:"absolute",top:10,left:10,background:"rgba(0,0,0,.7)",backdropFilter:"blur(3px)",borderRadius:6,padding:"3px 8px",display:"flex",alignItems:"center",gap:4}}><P.I s={11} c="#fff"/><span style={{color:"#fff",fontSize:10,fontWeight:700}}>{P.label}</span></div>
-              <div className={"tag "+STATUS_CLASS[status]} style={{position:"absolute",top:10,right:10}}>{STATUS_LABEL[status]}</div>
-            </a>
-          :<div style={{height:180,overflow:"hidden",background:"#111",flexShrink:0,position:"relative",display:"flex",alignItems:"center",justifyContent:"center"}}>
-              <img src={thumb} alt="" style={{width:"100%",height:"100%",objectFit:"cover",opacity:.85}} onError={e=>e.target.style.display="none"}/>
-              <div style={{position:"absolute",top:10,left:10,background:"rgba(0,0,0,.7)",borderRadius:6,padding:"3px 8px",display:"flex",alignItems:"center",gap:4}}><P.I s={11} c="#fff"/><span style={{color:"#fff",fontSize:10,fontWeight:700}}>DRAFT</span></div>
-              <div className={"tag "+STATUS_CLASS[status]} style={{position:"absolute",top:10,right:10}}>{STATUS_LABEL[status]}</div>
+      {/* 9:16 media area */}
+      <div style={{position:"relative",width:"100%",paddingBottom:"177.78%",background:"#000",flexShrink:0,overflow:"hidden"}}>
+        {thumb?(
+          <>
+            {isVideo
+              ?<video src={thumb} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover"}} muted playsInline/>
+              :<img src={thumb} alt="" style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",opacity:.95}} onError={e=>e.target.style.display="none"}/>
+            }
+            {/* Play button overlay — opens fullscreen viewer */}
+            <div onClick={()=>setMediaOpen(true)} style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,0)",transition:"background .2s",cursor:"pointer"}}
+              onMouseEnter={e=>e.currentTarget.style.background="rgba(0,0,0,0.35)"}
+              onMouseLeave={e=>e.currentTarget.style.background="rgba(0,0,0,0)"}>
+              <div style={{width:52,height:52,borderRadius:"50%",background:"rgba(0,0,0,0.6)",backdropFilter:"blur(4px)",display:"flex",alignItems:"center",justifyContent:"center",border:"1.5px solid rgba(255,255,255,0.4)"}}>
+                <span style={{color:"#fff",fontSize:20,marginLeft:3}}>▶</span>
+              </div>
             </div>
-      ):(
-        <div style={{height:120,background:"var(--s2)",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",position:"relative"}}>
-          <P.I s={36} c={P.c}/>
-          <div className={"tag "+STATUS_CLASS[status]} style={{position:"absolute",top:10,right:10}}>{STATUS_LABEL[status]}</div>
+          </>
+        ):(
+          <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:10,background:"var(--s2)"}}>
+            <P.I s={40} c={P.c}/>
+            <button onClick={()=>fileRef.current?.click()} style={{fontSize:11,color:"var(--t2)",background:"rgba(255,255,255,0.08)",borderRadius:8,padding:"5px 12px",border:".5px solid var(--b2)"}}>+ Upload Preview</button>
+          </div>
+        )}
+        {/* Top overlays */}
+        <div style={{position:"absolute",top:10,left:10,background:"rgba(0,0,0,.7)",backdropFilter:"blur(3px)",borderRadius:6,padding:"3px 8px",display:"flex",alignItems:"center",gap:4,pointerEvents:"none"}}>
+          <P.I s={11} c="#fff"/><span style={{color:"#fff",fontSize:10,fontWeight:700}}>{P.label}</span>
         </div>
-      )}
+        <div className={"tag "+STATUS_CLASS[status]} style={{position:"absolute",top:10,right:10,pointerEvents:"none"}}>{STATUS_LABEL[status]}</div>
+        {/* Bottom: link + upload buttons */}
+        <div style={{position:"absolute",bottom:8,left:8,right:8,display:"flex",gap:5,justifyContent:"space-between",alignItems:"center"}}>
+          {post.postUrl&&(
+            <a href={post.postUrl} target="_blank" onClick={e=>e.stopPropagation()}
+              style={{fontSize:10,fontWeight:700,color:"#fff",background:"rgba(0,0,0,0.7)",backdropFilter:"blur(4px)",borderRadius:6,padding:"4px 10px",border:".5px solid rgba(255,255,255,0.2)"}}>
+              Open Post ↗
+            </a>
+          )}
+          <div style={{display:"flex",gap:5,marginLeft:"auto"}}>
+            {!ro&&(
+              <button onClick={e=>{e.stopPropagation();fileRef.current?.click()}}
+                style={{fontSize:10,color:"#fff",background:"rgba(0,0,0,0.7)",backdropFilter:"blur(4px)",borderRadius:6,padding:"4px 8px",border:".5px solid rgba(255,255,255,0.2)"}}>
+                📁
+              </button>
+            )}
+            {post.postUrl&&(
+              <button onClick={copyCardLink}
+                style={{fontSize:10,color:"#fff",background:"rgba(0,0,0,0.7)",backdropFilter:"blur(4px)",borderRadius:6,padding:"4px 8px",border:".5px solid rgba(255,255,255,0.2)"}}>
+                {copied?"✓":"🔗"}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+      <input ref={fileRef} type="file" accept="video/*,image/*" style={{display:"none"}} onChange={onFileChange}/>
+      {mediaOpen&&thumb&&<MediaViewer src={thumb} isVideo={isVideo} onClose={()=>setMediaOpen(false)}/>}
       <div style={{padding:"12px 14px",flex:1,display:"flex",flexDirection:"column",gap:10}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <div style={{display:"flex",alignItems:"center",gap:6}}>
@@ -786,7 +846,7 @@ function Dashboard({id,ro,cfg,db_,onDbChange}){
             {!ro&&posts.length===0&&<button className="bg" onClick={()=>setModal("add")}>Add First Post</button>}
           </div>
         ):(
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:14}}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:14}}>
             {filteredPosts.map(p=>(
               <PostCard key={p.id} post={p}
                 onRefresh={()=>refreshOne(p)}
@@ -794,6 +854,7 @@ function Dashboard({id,ro,cfg,db_,onDbChange}){
                 onDelete={()=>{setEditTgt(p);setModal("del")}}
                 onStatusChange={changeStatus}
                 onAddComment={addComment}
+                onMediaUpload={(pid,url)=>setPosts(posts.map(x=>x.id===pid?{...x,thumbnail:url}:x))}
                 ro={ro}
               />
             ))}
